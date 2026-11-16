@@ -21,6 +21,7 @@ class PlayerState:
     hand: list[str] = field(default_factory=list)
     pending: list[str] = field(default_factory=list)  # traded-in cards waiting for phase 3
     coins: int = 0
+    coin_cards: list[str] = field(default_factory=list)  # the bean cards in the coin stack
     stats: Counter = field(default_factory=Counter)
 
 
@@ -68,11 +69,19 @@ class PlayerView:
     end_exhaustions: int = 3   # pile run-outs that end the game
     draft_picks_allowed: bool = True
     draft_picks: tuple = ()    # every outstanding PickInfo(giver, holder, cards, turns_left), in issue order
+    pile_start_size: int = 1   # size of the draw pile at the start of the current pass
+    third_field_cost: int | None = None  # price of a 3rd field if you can still buy one, else None
 
     # ---------- convenience ----------
     @property
     def is_active(self) -> bool:
         return self.seat == self.active
+
+    @property
+    def progress(self) -> float:
+        """Rough share of the game already played, 0.0 (start) to 1.0 (end)."""
+        cur = 1.0 - self.deck_size / max(1, self.pile_start_size)
+        return max(0.0, min(1.0, (self.exhaustions + cur) / self.end_exhaustions))
 
     # ---------- draft picks ----------
     @property

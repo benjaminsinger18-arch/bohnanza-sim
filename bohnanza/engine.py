@@ -15,7 +15,7 @@ MAX_TURNS = 3000
 
 STAT_KEYS = ("harvests", "harvest_cards", "harvest_coins", "forced_harvests", "trades",
              "trades_as_active", "cards_given", "cards_received", "gifts_given", "violations",
-             "picks_given", "picks_received", "pick_cards_taken", "pick_cards_lost")
+             "picks_given", "picks_received", "pick_cards_taken", "pick_cards_lost", "bought_third_field")
 
 
 class IllegalAction(Exception):
@@ -35,9 +35,9 @@ class Game:
 
     def __init__(self, bots: list[Bot], seed: int = 0, rules: "str | RuleSet" = "base",
                  verbose: bool = False, check: bool = True, strict: bool = False,
-                 draft_picks: bool = True):
+                 draft_picks: bool = True, third_field: bool = True):
         n = len(bots)
-        self.rules = rules if isinstance(rules, RuleSet) else make_rules(rules, n, draft_picks)
+        self.rules = rules if isinstance(rules, RuleSet) else make_rules(rules, n, draft_picks, third_field)
         self.picks: list[DraftPick] = []
         self.n, self.bots, self.seed = n, bots, seed
         self.rng = random.Random(seed)
@@ -64,6 +64,7 @@ class Game:
         for p in self.players:
             for _ in range(self.rules.hand_size):
                 p.hand.append(self.deck.pop())
+        self.pile_start = len(self.deck)
 
     # ================================================================ helpers
     def log(self, msg: str) -> None:
@@ -86,7 +87,9 @@ class Game:
             exhaustions=self.exhaustions, removed=dict(self.removed), deck_counts=dict(self.counts),
             rules=self.rules.name, end_exhaustions=self.rules.end_exhaustions,
             draft_picks_allowed=self.rules.draft_picks,
-            draft_picks=tuple(PickInfo(p.giver, p.holder, p.cards, p.turns_left) for p in self.picks))
+            draft_picks=tuple(PickInfo(p.giver, p.holder, p.cards, p.turns_left) for p in self.picks),
+            pile_start_size=self.pile_start,
+            third_field_cost=self.rules.third_field_cost if len(p.fields) == 2 else None)
 
     def violation(self, seat: int, msg: str) -> None:
         self.players[seat].stats["violations"] += 1
@@ -119,6 +122,7 @@ class Game:
                 return None
             self.deck, self.discard = self.discard, []
             self.rng.shuffle(self.deck)
+            self.pile_start = len(self.deck)
         card = self.deck.pop()
         if not self.deck:
             self.exhaustions += 1
@@ -128,6 +132,7 @@ class Game:
             else:
                 self.deck, self.discard = self.discard, []
                 self.rng.shuffle(self.deck)
+                self.pile_start = max(1, len(self.deck))
         return card
 
     # ================================================================ fields
@@ -136,6 +141,7 @@ class Game:
         f = p.fields[idx]
         coins = payout(f.bean, f.count)
         p.coins += coins
+        p.coin_cards.extend([f.bean] * coins)
         self.removed[f.bean] += coins
         self.discard.extend([f.bean] * (f.count - coins))
         if not final:
@@ -144,6 +150,26 @@ class Game:
             p.stats["harvest_coins"] += coins
         self.log(f"   {p.name} harvests {f.count}x {f.bean} -> {coins} coin(s){' (final)' if final else ''}")
         f.bean, f.count = None, 0
+
+    # ================================================================ third field
+    def can_buy_field(self, seat: int) -> bool:
+        p, cost = self.players[seat], self.rules.third_field_cost
+        return cost is not None and len(p.fields) == 2 and p.coins >= cost
+
+    def offer_field(self, seat: int) -> None:
+        """Ask the bot whether to buy a 3rd field now (only when it can afford one)."""
+        if not self.can_buy_field(seat) or self.ask(seat, "buy_third_field", self.view(seat)) is not True:
+            return
+        p, cost = self.players[seat], self.rules.third_field_cost
+        paid = p.coin_cards[-cost:]
+        del p.coin_cards[-cost:]
+        p.coins -= cost
+        for b in paid:  # paid coins go back into circulation via the discard pile
+            self.removed[b] -= 1
+            self.discard.append(b)
+        p.fields.append(Field())
+        p.stats["bought_third_field"] = 1
+        self.log(f"   {p.name} buys a third bean field for {cost} coins")
 
     def legal_plant(self, seat: int, idx, bean: str) -> bool:
         p = self.players[seat]
@@ -156,6 +182,8 @@ class Game:
 
     def plant(self, seat: int, bean: str) -> None:
         p = self.players[seat]
+        if all(f.bean not in (None, bean) for f in p.fields):
+            self.offer_field(seat)  # last chance to buy room instead of harvesting
         idx = self.ask(seat, "choose_field", self.view(seat), bean)
         if not self.legal_plant(seat, idx, bean):
             self.violation(seat, f"choose_field({bean}) -> {idx!r}")
@@ -171,6 +199,7 @@ class Game:
     def checkpoint(self) -> None:
         """Voluntary harvest opportunity for every player."""
         for seat in self.order_from(self.active):
+            self.offer_field(seat)
             idxs = self.ask(seat, "maybe_harvest", self.view(seat))
             if not idxs:
                 continue

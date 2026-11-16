@@ -67,7 +67,8 @@ class MyBot(Bot):
 | `solicit(view)` | Phase 2, other players | a `Request` (your hand cards → beans you want from the active player), or `None` |
 | `choose_trade(view, deals)` | Phase 2, active player | one `Deal`, or `None` to stop trading |
 | `draft_pick(view, count)` | Phase 2, right after the flip, when you hold a pick on the active player | up to `count` indices into `view.flipped` to take (`()` = pass) |
-| `pick_value(view, pick)` | Used by the default trade scoring | how much a `Pick` is worth to you, in card-value units |
+| `buy_third_field(view)` | Start of every phase, and before a forced harvest, when you can afford it | `bool` |
+| `pick_value(view, pick)` / `pick_cost(view, pick, holder)` | Used by the default trade scoring | what a `Pick` is worth to receive / costs to promise, in coins |
 
 `Bot` also provides helpers you can override and reuse: `card_value`, `pick_harvest`, `unwanted_flipped`, `find_payment` and `deal_score`. Each bot gets a seeded `self.rng`.
 
@@ -94,6 +95,42 @@ class MyBot(Bot):
 - `can_harvest(i)`, `harvestable()`, `legal_fields(bean)`, `remaining_unseen(bean)`
 
 **Illegal moves:** if a bot returns something illegal, or raises an exception, the engine substitutes the default decision and counts a **violation**. The violation count appears in the report. To make illegal moves raise an error instead (useful while debugging), use `Game(..., strict=True)`.
+
+## The baseline strategy
+
+Every bot inherits a sensible strategy from `Bot`. The `baseline` bot plays it unchanged, so you can measure your ideas against it. It judges every decision in coins:
+
+| Decision | Baseline rule |
+|---|---|
+| **Field value** | The larger of what the field pays if sold now and `RISK_DISCOUNT` × where it can still grow. Growth is estimated from copies still out there (unseen, plus discards if the pile gets reshuffled again) × `FUTURE_SHARE` × the share of the game left. |
+| **Rare vs common beans** | Comes straight from the field-value estimate. Once few copies of a rare bean remain, its fields stop gaining value. Common beans keep growing. |
+| **Planting** | Extends a matching field, otherwise starts a new one. A second card is planted only if it's worth at least an average new field. |
+| **Selling fields** | Sells a field once it pays and can't realistically grow any more. When forced, it sells the field that loses the least future value. |
+| **Third field** | Buys it for 3 coins while less than `THIRD_FIELD_MAX_PROGRESS` (60%) of the game has gone. |
+| **Trading** | Accepts a trade only if it gains more than `MIN_TRADE_GAIN` after subtracting what it pays and the partner's gain × `HELP_WEIGHT` (`LEADER_HELP_WEIGHT` if the partner leads). It offers away junk flips and front cards worth less than `JUNK_HAND_THRESHOLD`, first in exchange for a bean it grows and then as gifts. |
+| **Draft picks** | A pick's value is the flips it expects to want, discounted by `PICK_TURN_DISCOUNT` per turn of waiting. Its cost is the flips it would lose, plus the help the pick gives the holder. It promises a 1-card pick only when what it gets is worth at least twice the pick. |
+
+### Tuning settings
+
+Change any of these with a class attribute; there's no need to rewrite methods:
+
+```python
+class Bold(Bot):
+    HELP_WEIGHT = 0.0                # doesn't care if trades help opponents
+    THIRD_FIELD_MAX_PROGRESS = 1.0   # always buys the 3rd field
+    RISK_DISCOUNT = 0.95             # more patient with growing fields
+```
+
+The building blocks are `field_value`, `card_value`, `cards_value`, `hand_value`, `pick_value`, `pick_cost`, `deal_score` and `help_weight`. You can override any of them, or call them from your own logic.
+
+## Third bean field (classic rule)
+
+This rule is on by default. Turn it off with `--no-third-field`.
+
+- **The rule:** in games where players start with 2 fields, a player can buy a third for 3 coins.
+- **When bots are asked:** at the start of every phase, and just before a forced harvest.
+- **The hook:** `buy_third_field(view) -> bool`. `view.third_field_cost` is the price, or `None` if you can't buy one.
+- **What happens to the coins:** the 3 coin cards go back into circulation on the discard pile.
 
 ## Draft picks (house rule)
 

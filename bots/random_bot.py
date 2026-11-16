@@ -42,3 +42,11 @@ class RandomBot(Bot):
 
     def choose_trade(self, view, deals):
         return self.rng.choice(deals) if self.rng.random() < 0.5 else None
+
+    def buy_third_field(self, view):
+        return self.rng.random() < 0.1
+
+    def draft_pick(self, view, count):
+        idx = list(range(len(view.flipped)))
+        self.rng.shuffle(idx)
+        return tuple(idx[:self.rng.randint(0, count)])

@@ -109,13 +109,15 @@ button.theme { background: var(--surface); color: var(--ink); border: 1px solid 
     <h2>Meet the bots</h2>
     <p class="note">Every bot starts from the same default playstyle and changes only a few decisions.</p>
     <div class="defaults">
-      <b>The shared default:</b>
+      <b>The shared baseline</b> (the <code>baseline</code> bot plays it unchanged). Everything is judged in coins:
       <ul>
-        <li><b>Planting:</b> the front card goes into a field already growing that bean, otherwise an empty field. A second card is planted only if it fits without forcing a harvest.</li>
-        <li><b>Forced harvest:</b> when a bean has nowhere to go, it harvests the field that pays the most right now.</li>
-        <li><b>Voluntary harvest:</b> only once a field can't earn any more coins.</li>
-        <li><b>Trading:</b> offers unusable flipped cards for a bean it grows, then gives them away. Accepts cards that fit if it can pay with beans it doesn't grow, and asks for flipped cards matching its fields.</li>
-        <li><b>Draft picks:</b> never promises one, but accepts picks it is offered. When using a pick, it takes the flipped cards that fit its fields and passes on the rest.</li>
+        <li><b>Field value:</b> what a field pays if sold now, or (if bigger) a discounted estimate of what it can still grow to, based on how many copies of that bean are still out there and how much of the game is left.</li>
+        <li><b>Rare vs common beans:</b> rare beans (few copies left) stop gaining value quickly; common beans keep growing, so each card is worth its real contribution.</li>
+        <li><b>Planting:</b> extend a matching field, else start a new one. A second card is planted only if it's worth at least an empty field.</li>
+        <li><b>Selling fields:</b> sells once a field pays and can't realistically grow. When forced, sells the field that loses the least future value.</li>
+        <li><b>Third field:</b> buys it for 3 coins while less than 60% of the game has gone.</li>
+        <li><b>Trading:</b> only trades when it gains coins after counting what it pays and the help it gives the partner (the help counts more if the partner is leading). It sells junk flips and junk front cards, and asks for the flipped card it would gain most from.</li>
+        <li><b>Draft picks:</b> prices a pick by the flips it expects to want, discounted for each turn of waiting. It promises a 1-card pick only when what it gets is worth at least twice the pick, and uses picks only on cards worth having.</li>
       </ul>
     </div>
     <div class="tablewrap"><table id="meet"></table></div>
@@ -267,11 +269,12 @@ function behav() {
     ["coins_per_harvest", "Coins / harvest", 2], ["forced_pg", "Forced harvests", 1], ["hand_left_pg", "Cards left in hand", 1],
     ["picks_given_pg", "Picks given", 2], ["picks_received_pg", "Picks received", 2],
     ["pick_cards_taken_pg", "Cards drafted", 2], ["pick_cards_lost_pg", "Cards lost to picks", 2],
+    ["third_field_rate", "Bought 3rd field", "pct"],
     ["violations", "Violations", 0]];
   let h = `<tr><th style="text-align:left">Bot</th>${cols.map(c => `<th>${c[1]}</th>`).join("")}</tr>`;
   order.forEach(b => {
     const s = ST.bots[b];
-    h += `<tr><td><span class="sw" style="background:${color(b)}"></span>${b}</td>${cols.map(([k, , d]) => `<td>${(+s[k]).toFixed(d)}</td>`).join("")}</tr>`;
+    h += `<tr><td><span class="sw" style="background:${color(b)}"></span>${b}</td>${cols.map(([k, , d]) => `<td>${d === "pct" ? pct(s[k] || 0) : (+(s[k] || 0)).toFixed(d)}</td>`).join("")}</tr>`;
   });
   document.getElementById("behav").innerHTML = h;
 }

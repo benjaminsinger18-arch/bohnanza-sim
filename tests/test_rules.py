@@ -310,3 +310,72 @@ def test_bad_pick_shapes_rejected():
     g = Game([Bot(), Bad(), Bot(), Bot()], seed=3)
     g.play_turn()
     assert g.picks == [] and g.players[1].stats["violations"] >= 1
+
+
+# ---------------------------------------------------------------- third bean field
+def _put(g, seat, idx, bean, count):
+    """Place beans in a field, taking them out of the deck/hands so card counts stay right."""
+    for _ in range(count):
+        if bean in g.deck:
+            g.deck.remove(bean)
+        else:
+            next(q.hand for q in g.players if bean in q.hand).remove(bean)
+    f = g.players[seat].fields[idx]
+    f.bean, f.count = bean, count
+
+
+def test_buy_third_field_pays_coins_back_into_discard():
+    g = _game(4, seed=2)
+    p = g.players[0]
+    _put(g, 0, 0, "Red", 5)
+    g.harvest(0, 0)  # 5 Red -> 4 coins
+    disc_before = len(g.discard)
+    g.offer_field(0)  # baseline buys early in the game
+    assert len(p.fields) == 3 and p.coins == 1 and len(p.coin_cards) == 1
+    assert len(g.discard) == disc_before + 3 and p.stats["bought_third_field"] == 1
+    g.check_conservation()
+    g.offer_field(0)
+    assert len(p.fields) == 3  # only one extra field
+
+
+def test_cannot_buy_without_coins_or_when_disabled():
+    g = _game(4, seed=2)
+    g.offer_field(0)
+    assert len(g.players[0].fields) == 2
+    g2 = Game([Bot() for _ in range(4)], seed=2, third_field=False)
+    p = g2.players[0]
+    p.coins, p.coin_cards = 3, ["Red"] * 3
+    g2.offer_field(0)
+    assert len(p.fields) == 2
+
+
+def test_three_player_game_has_no_purchase():
+    g = _game(3)
+    assert g.view(0).third_field_cost is None
+
+
+def test_buy_offered_before_forced_harvest():
+    g = _game(4, seed=2)
+    p = g.players[0]
+    _put(g, 0, 0, "Blue", 3)
+    _put(g, 0, 1, "Red", 1)
+    p.coins, p.coin_cards = 3, ["Soy"] * 3
+    g.removed["Soy"] += 3
+    g.deck.remove("Soy"); g.deck.remove("Soy"); g.deck.remove("Soy")
+    g.deck.remove("Chili")
+    g.plant(0, "Chili")
+    assert len(p.fields) == 3 and p.stats["forced_harvests"] == 0
+    g.check_conservation()
+
+
+# ---------------------------------------------------------------- baseline valuation
+def test_rare_bean_with_no_copies_left_is_sold():
+    from bohnanza.registry import make_bot
+    b = make_bot("baseline")
+    g = Game([b, Bot(), Bot(), Bot()], seed=0)
+    v = g.view(0)
+    from dataclasses import replace
+    v = replace(v, fields=(("Garden", 3), (None, 0)))  # Garden maxes at 3 -> nothing left to gain
+    assert b.maybe_harvest(v) == [0]
+    v2 = replace(v, fields=(("Blue", 6), (None, 0)))  # plenty of Blue still out there early on
+    assert b.maybe_harvest(v2) == []

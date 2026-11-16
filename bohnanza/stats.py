@@ -100,6 +100,7 @@ def compute(rows: list[dict], runs_meta: list[dict] | None = None) -> dict:
             "hand_left_pg": s["hand_left"] / n,
             "picks_given_pg": s["picks_given"] / n, "picks_received_pg": s["picks_received"] / n,
             "pick_cards_taken_pg": s["pick_cards_taken"] / n, "pick_cards_lost_pg": s["pick_cards_lost"] / n,
+            "third_field_rate": s["bought_third_field"] / n,
             "coins_hist": _hist(s["coins"]),
         }
     order = sorted(bots, key=lambda b: (-bots[b]["win_rate"], -bots[b]["mean_coins"]))
