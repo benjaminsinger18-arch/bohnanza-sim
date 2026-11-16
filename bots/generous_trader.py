@@ -19,6 +19,8 @@ class GenerousTrader(Bot):
         return best if self.deal_score(view, best) >= 0 else None
 
     def respond_to_offer(self, view, offer):
+        if offer.want_picks:  # never promises draft picks
+            return None
         if not view.fits_all(list(view.pending) + list(offer.gives)):
             return None
         return self.find_payment(view, offer.want, allow_field_beans=True)

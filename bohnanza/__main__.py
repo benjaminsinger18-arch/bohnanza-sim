@@ -41,7 +41,8 @@ def _report(a, run: str):
 def cmd_run(a):
     keys = _keys(a.bots)
     run_id, _ = run_tournament(keys, a.games, seed=a.seed, rules=a.rules, players=a.players,
-                               workers=a.workers, bots_dir=a.bots_dir, results_dir=Path(a.results_dir))
+                               workers=a.workers, bots_dir=a.bots_dir, results_dir=Path(a.results_dir),
+                               draft_picks=not a.no_draft_picks)
     print(f"run {run_id}\n")
     if a.report:
         _report(a, run_id)
@@ -54,7 +55,7 @@ def cmd_report(a):
 
 
 def cmd_replay(a):
-    res, g = play_one(_keys(a.bots), a.seed, a.rules, a.bots_dir, verbose=True)
+    res, g = play_one(_keys(a.bots), a.seed, a.rules, a.bots_dir, verbose=True, draft_picks=not a.no_draft_picks)
     print("\n".join(g.log_lines))
     print()
     for p in sorted(res["players"], key=lambda p: p["rank"]):
@@ -77,6 +78,7 @@ def main(argv=None):
                    help="base = 3-5 players; variant = 3-7 players with Cocoa/Wax/Coffee")
     r.add_argument("--players", default=None, help="table size: 4, 3-5, or 3,5 (default: number of bots)")
     r.add_argument("--workers", type=int, default=None)
+    r.add_argument("--no-draft-picks", action="store_true", help="disable the draft-pick house rule")
     r.add_argument("--report", action="store_true", help="build the HTML report afterwards")
     r.add_argument("--open", action="store_true", help="open the report in a browser")
     r.set_defaults(fn=cmd_run)
@@ -91,6 +93,7 @@ def main(argv=None):
     q.add_argument("--bots", required=True)
     q.add_argument("--seed", type=int, default=1)
     q.add_argument("--rules", choices=["base", "variant"], default="base")
+    q.add_argument("--no-draft-picks", action="store_true")
     q.set_defaults(fn=cmd_replay)
 
     a = ap.parse_args(argv)

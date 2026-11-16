@@ -6,27 +6,39 @@ from .bot import Bot
 from .cards import build_deck, deck_counts, payout
 from .rules import RuleSet, make_rules
 from .state import Field, PlayerState, PlayerView, OpponentInfo, can_harvest_fields
-from .trading import Deal, Offer, OfferView, Request
+from .trading import (MAX_PICK_CARDS_OWED, MAX_PICK_TURNS, Deal, Offer, OfferView, Pick,
+                      PickInfo, Request)
 
 MAX_TRADE_ROUNDS = 10
 MAX_OFFERS = 8
 MAX_TURNS = 3000
 
 STAT_KEYS = ("harvests", "harvest_cards", "harvest_coins", "forced_harvests", "trades",
-             "trades_as_active", "cards_given", "cards_received", "gifts_given", "violations")
+             "trades_as_active", "cards_given", "cards_received", "gifts_given", "violations",
+             "picks_given", "picks_received", "pick_cards_taken", "pick_cards_lost")
 
 
 class IllegalAction(Exception):
     pass
 
 
+class DraftPick:
+    """Engine-side outstanding pick (mutable)."""
+    __slots__ = ("giver", "holder", "cards", "turns_left")
+
+    def __init__(self, giver: int, holder: int, cards: int, turns_left: int):
+        self.giver, self.holder, self.cards, self.turns_left = giver, holder, cards, turns_left
+
+
 class Game:
     """One game. Seat 0 is the starting player; turn order is seat 0, 1, 2, ..."""
 
     def __init__(self, bots: list[Bot], seed: int = 0, rules: "str | RuleSet" = "base",
-                 verbose: bool = False, check: bool = True, strict: bool = False):
+                 verbose: bool = False, check: bool = True, strict: bool = False,
+                 draft_picks: bool = True):
         n = len(bots)
-        self.rules = rules if isinstance(rules, RuleSet) else make_rules(rules, n)
+        self.rules = rules if isinstance(rules, RuleSet) else make_rules(rules, n, draft_picks)
+        self.picks: list[DraftPick] = []
         self.n, self.bots, self.seed = n, bots, seed
         self.rng = random.Random(seed)
         self.check, self.strict = check, strict
@@ -72,7 +84,9 @@ class Game:
                             for q in self.players if q.seat != seat),
             flipped=tuple(self.flipped), discard=tuple(self.discard), deck_size=len(self.deck),
             exhaustions=self.exhaustions, removed=dict(self.removed), deck_counts=dict(self.counts),
-            rules=self.rules.name, end_exhaustions=self.rules.end_exhaustions)
+            rules=self.rules.name, end_exhaustions=self.rules.end_exhaustions,
+            draft_picks_allowed=self.rules.draft_picks,
+            draft_picks=tuple(PickInfo(p.giver, p.holder, p.cards, p.turns_left) for p in self.picks))
 
     def violation(self, seat: int, msg: str) -> None:
         self.players[seat].stats["violations"] += 1
@@ -168,11 +182,59 @@ class Game:
                 else:
                     self.violation(seat, f"maybe_harvest -> {idx!r}")
 
+    # ================================================================ draft picks
+    @staticmethod
+    def _picks_ok(picks) -> bool:
+        return isinstance(picks, tuple) and all(
+            isinstance(p, Pick) and p.cards in (1, 2) and isinstance(p.turns, int)
+            and 1 <= p.turns <= MAX_PICK_TURNS for p in picks)
+
+    def pick_capacity(self, seat: int) -> int:
+        return MAX_PICK_CARDS_OWED - sum(p.cards for p in self.picks if p.giver == seat)
+
+    def can_promise(self, seat: int, picks: tuple) -> bool:
+        return sum(p.cards for p in picks) <= self.pick_capacity(seat)
+
+    def exercise_picks(self) -> None:
+        """Holders of the active player's picks take flipped cards, in the order the picks were issued."""
+        a = self.active
+        for dp in [p for p in self.picks if p.giver == a]:
+            if self.flipped:
+                h = dp.holder
+                idxs = self.ask(h, "draft_pick", self.view(h), dp.cards)
+                idxs = tuple(idxs) if isinstance(idxs, (list, tuple)) else idxs
+                if not (self._valid_idx(idxs, len(self.flipped)) and len(idxs) <= dp.cards):
+                    self.violation(h, f"draft_pick -> {idxs!r}")
+                    idxs = Bot.draft_pick(self.bots[h], self.view(h), dp.cards)
+                taken = [self.flipped[i] for i in idxs]
+                for i in sorted(idxs, reverse=True):
+                    del self.flipped[i]
+                self.players[h].pending.extend(taken)
+                self.players[h].stats["pick_cards_taken"] += len(taken)
+                self.players[a].stats["pick_cards_lost"] += len(taken)
+                self.log(f"   DRAFT {self.players[h].name} uses a pick on {self.players[a].name}: "
+                         f"takes {taken or 'nothing'}")
+            dp.turns_left -= 1
+        self.picks = [p for p in self.picks if p.turns_left > 0]
+
+    def _add_picks(self, giver: int, holder: int, picks: tuple) -> None:
+        for p in picks:
+            self.picks.append(DraftPick(giver, holder, p.cards, p.turns))
+            self.players[giver].stats["picks_given"] += 1
+            self.players[holder].stats["picks_received"] += 1
+
     # ================================================================ trading
     @staticmethod
     def _valid_idx(idxs, size: int) -> bool:
         return (isinstance(idxs, tuple) and len(set(idxs)) == len(idxs)
                 and all(isinstance(i, int) and 0 <= i < size for i in idxs))
+
+    def _picks_legal(self, seat: int, give, want) -> bool:
+        """Shape/rule check for picks in an offer or request (capacity is checked separately)."""
+        give, want = tuple(give), tuple(want)
+        if not (give or want):
+            return True
+        return self.rules.draft_picks and self._picks_ok(give) and self._picks_ok(want)
 
     def trade_phase(self) -> None:
         a = self.active
@@ -184,17 +246,21 @@ class Game:
             offers = self.ask(a, "propose_offers", self.view(a)) or []
             for off in list(offers)[:MAX_OFFERS]:
                 if not (isinstance(off, Offer) and self._valid_idx(tuple(off.give_flipped), len(self.flipped))
-                        and self._valid_idx(tuple(off.give_hand), len(ap.hand))):
+                        and self._valid_idx(tuple(off.give_hand), len(ap.hand))
+                        and self._picks_legal(a, off.give_picks, off.want_picks)
+                        and self.can_promise(a, tuple(off.give_picks))):
                     self.violation(a, f"bad offer {off!r}")
                     continue
                 gives = tuple(self.flipped[i] for i in off.give_flipped) + tuple(ap.hand[i] for i in off.give_hand)
-                want = tuple(off.want)
-                if not gives and not want:
+                want, gp, wp = tuple(off.want), tuple(off.give_picks), tuple(off.want_picks)
+                if not (gives or want or gp or wp):
                     continue
-                ov = OfferView(proposer=a, gives=gives, want=want)
+                ov = OfferView(proposer=a, gives=gives, want=want, give_picks=gp, want_picks=wp)
                 for seat in self.order_from(a)[1:]:
                     if off.to is not None and seat != off.to:
                         continue
+                    if not self.can_promise(seat, wp):
+                        continue  # this player couldn't honour the picks asked for
                     resp = self.ask(seat, "respond_to_offer", self.view(seat), ov)
                     if resp is None:
                         continue
@@ -204,23 +270,28 @@ class Game:
                         self.violation(seat, f"respond_to_offer -> {resp!r}")
                         continue
                     deals.append(Deal(seat, tuple(off.give_flipped), tuple(off.give_hand), resp,
-                                      gives, tuple(hand[i] for i in resp), "offer"))
+                                      gives, tuple(hand[i] for i in resp), "offer", gp, wp))
             for seat in self.order_from(a)[1:]:
                 req = self.ask(seat, "solicit", self.view(seat))
                 if req is None:
                     continue
                 hand = self.players[seat].hand
-                if not isinstance(req, Request) or not self._valid_idx(tuple(req.give_hand), len(hand)):
+                if not (isinstance(req, Request) and self._valid_idx(tuple(req.give_hand), len(hand))
+                        and self._picks_legal(seat, req.give_picks, req.want_picks)
+                        and self.can_promise(seat, tuple(req.give_picks))):
                     self.violation(seat, f"solicit -> {req!r}")
                     continue
-                if not req.give_hand and not req.want:
+                gp, wp = tuple(req.give_picks), tuple(req.want_picks)
+                if not (req.give_hand or req.want or gp or wp):
+                    continue
+                if not self.can_promise(a, wp):
                     continue
                 fill = self._fulfil(tuple(req.want))
                 if fill is None:
                     continue
                 ff, fh = fill
                 deals.append(Deal(seat, ff, fh, tuple(req.give_hand), tuple(req.want),
-                                  tuple(hand[i] for i in req.give_hand), "request"))
+                                  tuple(hand[i] for i in req.give_hand), "request", wp, gp))
             if not deals:
                 empty_rounds += 1
                 if empty_rounds >= 2:
@@ -257,7 +328,13 @@ class Game:
             return False
         if not any(d.partner == c.partner and d.partner_hand == c.partner_hand
                    and Counter(d.active_gives) == Counter(c.active_gives) and d.source == c.source
+                   and d.active_gives_picks == c.active_gives_picks
+                   and d.active_gets_picks == c.active_gets_picks
                    for c in deals):
+            return False
+        # picks promised earlier this turn may have used up capacity
+        if not (self.can_promise(self.active, d.active_gives_picks)
+                and self.can_promise(d.partner, d.active_gets_picks)):
             return False
         hand = self.players[self.active].hand
         if not (self._valid_idx(tuple(d.active_flipped), len(self.flipped))
@@ -279,15 +356,21 @@ class Game:
         # received cards go beside the fields (pending), never into the hand -> can't be re-traded
         ap.pending.extend(p_cards)
         pp.pending.extend(a_cards)
+        self._add_picks(self.active, d.partner, d.active_gives_picks)
+        self._add_picks(d.partner, self.active, d.active_gets_picks)
         self.trades += 1
         for q, gave, got in ((ap, a_cards, p_cards), (pp, p_cards, a_cards)):
             q.stats["trades"] += 1
             q.stats["cards_given"] += len(gave)
             q.stats["cards_received"] += len(got)
         ap.stats["trades_as_active"] += 1
-        if not p_cards:
+        if not p_cards and not d.active_gets_picks:
             ap.stats["gifts_given"] += 1
-        self.log(f"   TRADE {ap.name} gives {a_cards or 'nothing'} <-> {pp.name} gives {p_cards or 'nothing'}")
+        fmt = lambda cards, picks: " + ".join(
+            [str(cards)] * bool(cards) + [f"pick({p.cards} card{'s' * (p.cards > 1)} x {p.turns} turn{'s' * (p.turns > 1)})"
+                                         for p in picks]) or "nothing"
+        self.log(f"   TRADE {ap.name} gives {fmt(a_cards, d.active_gives_picks)} <-> "
+                 f"{pp.name} gives {fmt(p_cards, d.active_gets_picks)}")
 
     # ================================================================ turn
     def play_turn(self) -> None:
@@ -309,6 +392,7 @@ class Game:
             if c is not None:
                 self.flipped.append(c)
         self.log(f"   flips {self.flipped}")
+        self.exercise_picks()
         self.checkpoint()
         self.trade_phase()
         # Phase 3: plant flipped + traded cards

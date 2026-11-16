@@ -66,11 +66,29 @@ class PlayerView:
     deck_counts: dict          # bean -> copies in this game's deck
     rules: str = "base"        # "base" or "variant"
     end_exhaustions: int = 3   # pile run-outs that end the game
+    draft_picks_allowed: bool = True
+    draft_picks: tuple = ()    # every outstanding PickInfo(giver, holder, cards, turns_left), in issue order
 
     # ---------- convenience ----------
     @property
     def is_active(self) -> bool:
         return self.seat == self.active
+
+    # ---------- draft picks ----------
+    @property
+    def picks_held(self) -> list:
+        """Draft picks other players owe me."""
+        return [p for p in self.draft_picks if p.holder == self.seat]
+
+    @property
+    def picks_owed(self) -> list:
+        """Draft picks I owe other players."""
+        return [p for p in self.draft_picks if p.giver == self.seat]
+
+    def pick_capacity(self, seat: int | None = None) -> int:
+        """How many more pick-cards this player (default: me) can promise (max 2 owed at once)."""
+        seat = self.seat if seat is None else seat
+        return max(0, 2 - sum(p.cards for p in self.draft_picks if p.giver == seat))
 
     @property
     def my_beans(self) -> set[str]:

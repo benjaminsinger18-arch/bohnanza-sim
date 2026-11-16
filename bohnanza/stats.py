@@ -98,6 +98,8 @@ def compute(rows: list[dict], runs_meta: list[dict] | None = None) -> dict:
             "coins_per_harvest": s["harvest_coins"] / h if h else 0,
             "forced_pg": s["forced_harvests"] / n, "violations": s["violations"],
             "hand_left_pg": s["hand_left"] / n,
+            "picks_given_pg": s["picks_given"] / n, "picks_received_pg": s["picks_received"] / n,
+            "pick_cards_taken_pg": s["pick_cards_taken"] / n, "pick_cards_lost_pg": s["pick_cards_lost"] / n,
             "coins_hist": _hist(s["coins"]),
         }
     order = sorted(bots, key=lambda b: (-bots[b]["win_rate"], -bots[b]["mean_coins"]))

@@ -15,6 +15,8 @@ class Hoarder(Bot):
         return max(view.harvestable(), key=lambda i: (view.field_payout(i), view.fields[i][1]))
 
     def respond_to_offer(self, view, offer):
+        if offer.want_picks:  # never promises draft picks
+            return None
         if not all(view.field_index(b) is not None for b in offer.gives):
             return None
         return self.find_payment(view, offer.want)

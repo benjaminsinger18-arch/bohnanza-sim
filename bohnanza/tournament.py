@@ -47,17 +47,17 @@ def lineups(keys: list[str], sizes: list[int], games: int, seed: int):
         yield i, lineup, seed * 1_000_003 + i
 
 
-def play_one(lineup: list[str], game_seed: int, rules: str, bots_dir=None, verbose=False):
+def play_one(lineup: list[str], game_seed: int, rules: str, bots_dir=None, verbose=False, draft_picks=True):
     bots = [make_bot(k, bots_dir) for k in lineup]
-    g = Game(bots, seed=game_seed, rules=rules, verbose=verbose)
+    g = Game(bots, seed=game_seed, rules=rules, verbose=verbose, draft_picks=draft_picks)
     return g.play(), g
 
 
 def _run_chunk(args):
-    items, rules, bots_dir = args
+    items, rules, bots_dir, draft_picks = args
     out = []
     for i, lineup, gs in items:
-        res, _ = play_one(lineup, gs, rules, bots_dir)
+        res, _ = play_one(lineup, gs, rules, bots_dir, draft_picks=draft_picks)
         res["game"] = i
         out.append(res)
     return out
@@ -65,7 +65,7 @@ def _run_chunk(args):
 
 def run_tournament(keys: list[str], games: int, seed: int = 1, rules: str = "base",
                    players=None, workers: int | None = None, bots_dir=None,
-                   results_dir: Path = RESULTS_DIR, progress: bool = True) -> tuple[str, list[dict]]:
+                   results_dir: Path = RESULTS_DIR, progress: bool = True, draft_picks: bool = True) -> tuple[str, list[dict]]:
     available = discover(bots_dir)
     for k in keys:
         if k not in available:
@@ -77,7 +77,7 @@ def run_tournament(keys: list[str], games: int, seed: int = 1, rules: str = "bas
     run_id = time.strftime("%Y%m%d-%H%M%S") + f"-s{seed}"
     workers = workers or max(1, (os.cpu_count() or 2) - 1)
     chunk = max(20, games // (workers * 8) or 1)
-    chunks = [(items[j:j + chunk], rules, bots_dir) for j in range(0, len(items), chunk)]
+    chunks = [(items[j:j + chunk], rules, bots_dir, draft_picks) for j in range(0, len(items), chunk)]
 
     t0 = time.time()
     rows: list[dict] = []
@@ -95,7 +95,8 @@ def run_tournament(keys: list[str], games: int, seed: int = 1, rules: str = "bas
         print(f"\r  {games} games in {time.time() - t0:.1f}s" + " " * 10)
     rows.sort(key=lambda r: r["game"])
     meta = {"run": run_id, "time": time.strftime("%Y-%m-%d %H:%M:%S"), "bots": keys,
-            "games": games, "seed": seed, "rules": rules, "players": sizes}
+            "games": games, "seed": seed, "rules": rules, "players": sizes,
+            "draft_picks": draft_picks}
     for r in rows:
         r["run"] = run_id
 

@@ -66,6 +66,8 @@ class MyBot(Bot):
 | `respond_to_offer(view, offer)` | Phase 2, other players | hand indices whose beans exactly match `offer.want`, `()` to accept a gift, or `None` to decline |
 | `solicit(view)` | Phase 2, other players | a `Request` (your hand cards → beans you want from the active player), or `None` |
 | `choose_trade(view, deals)` | Phase 2, active player | one `Deal`, or `None` to stop trading |
+| `draft_pick(view, count)` | Phase 2, right after the flip, when you hold a pick on the active player | up to `count` indices into `view.flipped` to take (`()` = pass) |
+| `pick_value(view, pick)` | Used by the default trade scoring | how much a `Pick` is worth to you, in card-value units |
 
 `Bot` also provides helpers you can override and reuse: `card_value`, `pick_harvest`, `unwanted_flipped`, `find_payment` and `deal_score`. Each bot gets a seeded `self.rng`.
 
@@ -92,6 +94,26 @@ class MyBot(Bot):
 - `can_harvest(i)`, `harvestable()`, `legal_fields(bean)`, `remaining_unseen(bean)`
 
 **Illegal moves:** if a bot returns something illegal, or raises an exception, the engine substitutes the default decision and counts a **violation**. The violation count appears in the report. To make illegal moves raise an error instead (useful while debugging), use `Game(..., strict=True)`.
+
+## Draft picks (house rule)
+
+Draft picks are on by default. Turn them off with `--no-draft-picks`.
+
+- **What a pick is:** `Pick(cards, turns)` is a promise by the player who gives it. On each of the giver's next `turns` turns, right after the 2 cards are flipped and before any trading, the holder takes up to `cards` (1 or 2) of them for free.
+- **Planting:** cards taken with a pick go beside the holder's fields and must be planted in phase 3, the same as traded cards.
+- **How picks change hands:** picks are traded like cards during phase 2.
+  - **Active player:** `Offer(give_picks=..., want_picks=...)` gives picks to, or asks for picks from, another player.
+  - **Other players:** `Request(give_picks=..., want_picks=...)` does the same towards the active player.
+  - **Gifts:** a pick can be given on its own, with nothing asked in return.
+- **Limits:**
+  - **2-card cap:** a player can never owe more than 2 cards across all their outstanding picks. Use `view.pick_capacity()` to check what's left.
+  - **Length:** a pick lasts at most 10 turns.
+  - **No passing on:** a holder can't trade a pick to someone else.
+  - **Game end:** picks not yet used when the game ends are worthless.
+- **Order:** when several picks fall on the same turn, they're used in the order they were given.
+- **Seeing picks:** `view.draft_picks` lists every outstanding pick. `view.picks_held` and `view.picks_owed` filter it to yours.
+- **Default bot:** it never promises a pick, but it accepts picks it's offered. When using a pick, it takes only flipped cards that fit its fields.
+- **Starter bots that trade picks:** `draft_dealer` and `big_spender`, both in `bots/draft_dealer.py`. `draft_dealer` promises 1 card for 1 turn. `big_spender` promises 2 cards for 2 turns.
 
 ## Rules notes and simplifications
 

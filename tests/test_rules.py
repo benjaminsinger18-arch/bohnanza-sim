@@ -227,3 +227,86 @@ def test_deterministic():
         bots = [make_bot(k) for k in ("random", "hoarder", "quick_cash", "stingy")]
         return Game(bots, seed=42).play()
     assert run() == run()
+
+
+# ---------------------------------------------------------------- draft picks
+from bohnanza import Pick, Request  # noqa: E402
+from bohnanza.engine import DraftPick  # noqa: E402
+
+
+def test_pick_taken_before_trading_and_expires():
+    g = _game(4, seed=1)
+    g.picks = [DraftPick(giver=0, holder=2, cards=1, turns_left=2)]
+    g.flipped = [g.deck.pop(), g.deck.pop()]
+
+    class Grab(Bot):
+        def draft_pick(self, view, count):
+            return (0,)
+
+    g.bots[2] = Grab()
+    first = g.flipped[0]
+    g.exercise_picks()
+    assert g.players[2].pending == [first] and len(g.flipped) == 1
+    assert g.picks[0].turns_left == 1
+    g.exercise_picks()
+    assert g.picks == []  # used on both of the giver's turns, then gone
+    assert g.players[2].stats["pick_cards_taken"] == 2 and g.players[0].stats["pick_cards_lost"] == 2
+
+
+def test_pick_only_applies_on_givers_turn():
+    g = _game(4, seed=1)
+    g.picks = [DraftPick(giver=1, holder=2, cards=2, turns_left=1)]
+    g.active = 0
+    g.flipped = [g.deck.pop(), g.deck.pop()]
+    g.exercise_picks()
+    assert len(g.flipped) == 2 and len(g.picks) == 1
+
+
+def test_cannot_owe_more_than_two_cards():
+    g = _game(4)
+    g.picks = [DraftPick(giver=1, holder=2, cards=2, turns_left=3)]
+    assert not g.can_promise(1, (Pick(1, 1),))
+    assert g.can_promise(3, (Pick(2, 5),))
+    assert not g.can_promise(3, (Pick(1, 1), Pick(2, 1)))
+
+
+def test_pick_traded_via_request_and_not_used_same_turn():
+    class Buyer(Bot):
+        def solicit(self, view):
+            if view.flipped and view.pick_capacity() >= 2:
+                return Request(give_picks=(Pick(2, 3),), want=(view.flipped[0],))
+            return None
+
+    class Seller(Bot):  # active player: values picks highly
+        def pick_value(self, view, pick):
+            return 10
+
+        def propose_offers(self, view):
+            return []
+
+    g = Game([Seller(), Buyer(), Bot(), Bot()], seed=3, strict=True)
+    g.play_turn()
+    assert len(g.picks) == 1
+    p = g.picks[0]
+    assert (p.giver, p.holder, p.cards, p.turns_left) == (1, 0, 2, 3)
+    assert g.players[1].stats["picks_given"] == 1 and g.players[0].stats["picks_received"] == 1
+
+
+def test_draft_picks_can_be_disabled():
+    class Buyer(Bot):
+        def solicit(self, view):
+            return Request(give_picks=(Pick(1, 1),), want=()) if view.flipped else None
+
+    g = Game([Bot(), Buyer(), Bot(), Bot()], seed=3, draft_picks=False)
+    g.play_turn()
+    assert g.picks == [] and g.players[1].stats["violations"] >= 1
+
+
+def test_bad_pick_shapes_rejected():
+    class Bad(Bot):
+        def solicit(self, view):
+            return Request(give_picks=(Pick(3, 1),)) if view.flipped else None
+
+    g = Game([Bot(), Bad(), Bot(), Bot()], seed=3)
+    g.play_turn()
+    assert g.picks == [] and g.players[1].stats["violations"] >= 1

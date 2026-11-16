@@ -7,7 +7,7 @@ import random
 from collections import Counter
 
 from .state import PlayerView
-from .trading import Deal, Offer, OfferView, Request
+from .trading import Deal, Offer, OfferView, Pick, Request
 
 
 class Bot:
@@ -108,11 +108,35 @@ class Bot:
     def deal_score(self, view: PlayerView, deal: Deal) -> float:
         gets = sum(self.card_value(view, b) for b in deal.active_gets)
         gives = sum(self.card_value(view, b) for b in deal.active_gives)
+        gets += sum(self.pick_value(view, p) for p in deal.active_gets_picks)
+        gives += sum(self.pick_value(view, p) for p in deal.active_gives_picks)
         return gets - gives
+
+    # ------------------------------------------------------------------ draft picks
+    def pick_value(self, view: PlayerView, pick: Pick) -> float:
+        """Rough worth of one draft pick, in the same units as card_value.
+        Used both for picks received (gain) and picks promised (cost)."""
+        return 0.5 * pick.cards * pick.turns
+
+    def draft_pick(self, view: PlayerView, count: int) -> tuple[int, ...]:
+        """Using a pick: return up to `count` indices into view.flipped to take for free.
+        Default: take the cards worth most to me, skipping any that would force a harvest."""
+        chosen: list[int] = []
+        ranked = sorted(range(len(view.flipped)), key=lambda i: -self.card_value(view, view.flipped[i]))
+        for i in ranked:
+            if len(chosen) == count:
+                break
+            planned = list(view.pending) + [view.flipped[j] for j in chosen] + [view.flipped[i]]
+            if self.card_value(view, view.flipped[i]) >= 0 and view.fits_all(planned):
+                chosen.append(i)
+        return tuple(chosen)
 
     # ------------------------------------------------------------------ trading (others)
     def respond_to_offer(self, view: PlayerView, offer: OfferView) -> tuple[int, ...] | None:
-        """Accept by returning hand indices whose beans exactly match offer.want."""
+        """Accept by returning hand indices whose beans exactly match offer.want.
+        Default: never promises draft picks; happily accepts picks given to it."""
+        if offer.want_picks:
+            return None
         if not view.fits_all(list(view.pending) + list(offer.gives)):
             return None
         return self.find_payment(view, offer.want)

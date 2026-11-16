@@ -115,6 +115,7 @@ button.theme { background: var(--surface); color: var(--ink); border: 1px solid 
         <li><b>Forced harvest:</b> when a bean has nowhere to go, it harvests the field that pays the most right now.</li>
         <li><b>Voluntary harvest:</b> only once a field can't earn any more coins.</li>
         <li><b>Trading:</b> offers unusable flipped cards for a bean it grows, then gives them away. Accepts cards that fit if it can pay with beans it doesn't grow, and asks for flipped cards matching its fields.</li>
+        <li><b>Draft picks:</b> never promises one, but accepts picks it is offered. When using a pick, it takes the flipped cards that fit its fields and passes on the rest.</li>
       </ul>
     </div>
     <div class="tablewrap"><table id="meet"></table></div>
@@ -247,6 +248,13 @@ function meet() {
     const gift = order.reduce((x, y) => B[y].gifts_pg > B[x].gifts_pg ? y : x);
     if (B[gift].gifts_pg >= 1)
       out.push(`<b>${esc(gift)}</b> gives away the most cards for free (${B[gift].gifts_pg.toFixed(1)} gifts a game), and every gift helps an opponent.`);
+    const pickers = order.filter(k => (B[k].picks_given_pg || 0) + (B[k].picks_received_pg || 0) > 0);
+    if (pickers.length) {
+      const giver = pickers.reduce((x, y) => B[y].picks_given_pg > B[x].picks_given_pg ? y : x);
+      const drafter = pickers.reduce((x, y) => B[y].pick_cards_taken_pg > B[x].pick_cards_taken_pg ? y : x);
+      out.push(`Draft picks: <b>${esc(giver)}</b> gives the most (${B[giver].picks_given_pg.toFixed(1)} a game, losing ${B[giver].pick_cards_lost_pg.toFixed(1)} flipped cards to them) and wins ${pct(B[giver].win_rate)}. ` +
+        `<b>${esc(drafter)}</b> drafts the most cards (${B[drafter].pick_cards_taken_pg.toFixed(1)} a game).`);
+    }
     const viol = order.filter(k => B[k].violations > 0);
     if (viol.length) out.push(`Rule violations from ${viol.map(esc).join(", ")}: the engine corrected them, but check those bots' code.`);
   }
@@ -257,6 +265,8 @@ function behav() {
   const cols = [["trades_pg", "Trades", 1], ["gifts_pg", "Gifts given", 2], ["cards_given_pg", "Cards given", 1],
     ["cards_received_pg", "Cards received", 1], ["harvests_pg", "Harvests", 1], ["avg_harvest_size", "Cards / harvest", 2],
     ["coins_per_harvest", "Coins / harvest", 2], ["forced_pg", "Forced harvests", 1], ["hand_left_pg", "Cards left in hand", 1],
+    ["picks_given_pg", "Picks given", 2], ["picks_received_pg", "Picks received", 2],
+    ["pick_cards_taken_pg", "Cards drafted", 2], ["pick_cards_lost_pg", "Cards lost to picks", 2],
     ["violations", "Violations", 0]];
   let h = `<tr><th style="text-align:left">Bot</th>${cols.map(c => `<th>${c[1]}</th>`).join("")}</tr>`;
   order.forEach(b => {
