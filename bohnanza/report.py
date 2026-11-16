@@ -145,6 +145,14 @@ button.theme { background: var(--surface); color: var(--ink); border: 1px solid 
     <div class="tablewrap"><table class="h2h" id="h2h"></table></div>
   </div>
 
+  <div class="card wide" id="sizeCard">
+    <h2>By table size</h2>
+    <p class="note">Win rate ÷ fair share at each table size (1.00× = average). Each size is its own set of games.</p>
+    <div class="legend" id="lgSize"></div>
+    <div class="chart"><canvas id="cSize"></canvas></div>
+    <div class="tablewrap" style="margin-top:14px"><table id="sizeTable"></table></div>
+  </div>
+
   <div class="card">
     <h2>Win rate by seat</h2>
     <p class="note">Seat 1 starts the game. Ties go to the player furthest from the starter.</p>
@@ -365,6 +373,31 @@ function draw() {
     options: (() => { const o = baseOpts(); o.scales.x.title = { display: true, text: "coins", color: css("--muted") };
       o.plugins.tooltip.callbacks.title = i => `${i[0].label} coins`; return o; })() }));
   legend("lgHist", order);
+
+  // --- by table size
+  const sizeCard = document.getElementById("sizeCard");
+  const sizes = Object.keys(ST.by_size || {}).map(Number).sort((a, b) => a - b);
+  if (sizes.length > 1) {
+    sizeCard.style.display = "";
+    const so = baseOpts(false);
+    so.scales.y.ticks.callback = v => v.toFixed(1) + "×";
+    so.scales.x.title = { display: true, text: "players at the table", color: css("--muted") };
+    so.plugins.tooltip.callbacks = { label: c => ` ${c.dataset.label}: ${c.parsed.y == null ? "–" : c.parsed.y.toFixed(2) + "×"}` };
+    charts.push(new Chart(document.getElementById("cSize"), { type: "line",
+      data: { labels: sizes.map(n => n + " players"), datasets: [
+        ...order.map(b => ({ ...lineDs(b, sizes.map(n => ST.by_size[n][b] ? ST.by_size[n][b].lift : null)), pointRadius: 4, tension: 0 })),
+        { label: "fair share", data: sizes.map(() => 1), borderColor: css("--muted"), borderWidth: 1, pointRadius: 0 } ] },
+      options: so }));
+    legend("lgSize", order);
+    let t = `<tr><th style="text-align:left">Bot</th>${sizes.map(n => `<th>${n} players</th>`).join("")}</tr>`;
+    order.forEach(b => {
+      t += `<tr><td><span class="sw" style="background:${color(b)}"></span>${esc(b)}</td>` + sizes.map(n => {
+        const x = ST.by_size[n][b];
+        return x ? `<td title="${x.games} games, 95% CI ${pct(x.ci_lo)}–${pct(x.ci_hi)}">${pct(x.win_rate)} · ${x.mean_coins.toFixed(1)} coins</td>` : "<td>–</td>";
+      }).join("") + "</tr>";
+    });
+    document.getElementById("sizeTable").innerHTML = t;
+  } else sizeCard.style.display = "none";
 
   // --- by seat
   const seats = ST.sizes.length ? [...Array(Math.max(...ST.sizes)).keys()].map(i => "Seat " + (i + 1)) : [];

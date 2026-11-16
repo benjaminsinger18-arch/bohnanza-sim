@@ -51,6 +51,7 @@ def compute(rows: list[dict], runs_meta: list[dict] | None = None) -> dict:
     conv_points: dict[str, list] = defaultdict(list)
     run_w = defaultdict(lambda: defaultdict(lambda: [0, 0]))
     sizes, rules = set(), set()
+    size_acc = defaultdict(lambda: defaultdict(lambda: [0, 0, 0]))  # n -> bot -> [games, wins, coins]
 
     total = len(rows)
     step = max(1, total // 150)
@@ -67,6 +68,10 @@ def compute(rows: list[dict], runs_meta: list[dict] | None = None) -> dict:
             for k in STAT_KEYS:
                 s[k] += p.get(k, 0)
             s["hand_left"] += p.get("hand_left", 0)
+            sa = size_acc[r["n"]][p["bot"]]
+            sa[0] += 1
+            sa[1] += p["win"]
+            sa[2] += p["coins"]
             seat_w[p["bot"]][p["seat"]] += p["win"]
             seat_n[p["bot"]][p["seat"]] += 1
             rw = run_w[r.get("run", "?")][p["bot"]]
@@ -115,8 +120,15 @@ def compute(rows: list[dict], runs_meta: list[dict] | None = None) -> dict:
         history.append({"run": run_id, "time": m.get("time", run_id), "games": m.get("games"),
                         "win_rate": {b: w / n for b, (w, n) in d.items()}})
     history.sort(key=lambda h: h["time"])
+    by_size = {}
+    for n_, d in sorted(size_acc.items()):
+        by_size[n_] = {}
+        for b, (g, w, c) in d.items():
+            lo, hi = wilson(w, g)
+            by_size[n_][b] = {"games": g, "win_rate": w / g, "lift": (w / g) * n_, "mean_coins": c / g,
+                              "ci_lo": lo, "ci_hi": hi}
     return {"games": total, "sizes": sorted(sizes), "rules": sorted(rules), "order": order,
-            "bots": bots, "h2h": h2h, "by_seat": by_seat, "convergence": dict(conv_points),
+            "by_size": by_size, "bots": bots, "h2h": h2h, "by_seat": by_seat, "convergence": dict(conv_points),
             "history": history}
 
 
@@ -137,6 +149,17 @@ def format_table(st: dict) -> str:
         lines.append(f"{b:<18}{s['games']:>7}{s['win_rate']*100:>7.1f}%{ci:>15}"
                      f"{s['lift']:>8.2f}x{s['mean_coins']:>8.2f}{s['avg_rank']:>6.2f}"
                      f"{s['trades_pg']:>8.1f}{s['avg_harvest_size']:>9.2f}{s['forced_pg']:>8.1f}{s['violations']:>6}")
-    lines.append(f"\n{st['games']} games  |  rules: {', '.join(st['rules'])}  |  table sizes: "
+    if len(st.get("by_size", {})) > 1:
+        sizes = sorted(st["by_size"])
+        lines.append("\nBy table size: win rate vs fair share (avg coins)")
+        h = f"{'bot':<18}" + "".join(f"{str(n) + ' players':>17}" for n in sizes)
+        lines += [h, "-" * len(h)]
+        for b in st["order"]:
+            cells = []
+            for n in sizes:
+                x = st["by_size"][n].get(b)
+                cells.append(f"{x['lift']:.2f}x ({x['mean_coins']:4.1f})" if x else "-")
+            lines.append(f"{b:<18}" + "".join(f"{c:>17}" for c in cells))
+    lines.append(f"\n{st['games']} games  |  rules:{', '.join(st['rules'])}  |  table sizes: "
                  f"{', '.join(map(str, st['sizes']))}  |  'vs fair' = win rate / (1 / players)")
     return "\n".join(lines)

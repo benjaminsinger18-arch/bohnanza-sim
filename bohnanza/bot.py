@@ -54,6 +54,7 @@ class Bot:
     HAND_DEPTH_DECAY = 0.75         # cards deeper in the hand matter less (they're turns away)
     THIRD_FIELD_MAX_PROGRESS = 0.6  # buy a 3rd field only if less than this share of the game is gone
     JUNK_HAND_THRESHOLD = -0.2      # front hand cards worth less than this get offered away
+    PICK_MENU = ((1, 1), (1, 2), (2, 1), (1, 3), (2, 2), (2, 3))  # (cards, turns) picks I'm willing to offer
 
     def __init__(self):
         self.seat: int = -1
@@ -230,6 +231,29 @@ class Bot:
         d = self.PICK_TURN_DISCOUNT
         return sum(d ** k for k in range(1, turns + 1))
 
+    def their_card_value(self, view: PlayerView, seat: int, bean: str) -> float:
+        """Rough value of a bean to another player, judged from their visible fields."""
+        o = view.opponent(seat)
+        if any(b == bean for b, _ in o.fields):
+            return 0.5
+        if any(b is None for b, _ in o.fields):
+            return 0.0
+        return -0.5
+
+    def ev_pick(self, view: PlayerView, gain: float, partner: int | None, their_loss: float) -> Pick | None:
+        """The cheapest draft pick (from PICK_MENU) that is worth more to the partner than the card they
+        give up, while costing me less than what I gain. None if no pick is positive for both sides."""
+        if not view.draft_picks_allowed:
+            return None
+        cap = view.pick_capacity()
+        menu = [Pick(c, t) for c, t in self.PICK_MENU if c <= cap]
+        for pk in sorted(menu, key=lambda pk: self.pick_cost(view, pk, partner)):
+            if self.pick_cost(view, pk, partner) >= gain - self.MIN_TRADE_GAIN:
+                break  # every remaining pick costs even more
+            if self.pick_value(view, pk) >= their_loss + self.MIN_TRADE_GAIN:
+                return pk
+        return None
+
     def pick_value(self, view: PlayerView, pick: Pick) -> float:
         """Expected coins from holding a draft pick: the best of the 2 flips (1-card pick)
         or both flips (2-card pick), only counting cards I'd actually want, discounted per turn."""
@@ -286,7 +310,8 @@ class Bot:
 
     def propose_offers(self, view: PlayerView) -> list[Offer]:
         """Baseline: sell unwanted flipped cards and junk front hand cards (first for a bean
-        I grow, then as gifts), and buy my best bean with a small draft pick when that's clearly worth it."""
+        I grow, then as gifts). When I want a bean but have nothing good to pay with, I always offer
+        an EV-priced draft pick for it."""
         offers = []
         want = self.wanted_bean(view)
         ask = (want,) if view.trade_round == 0 and want else ()
@@ -295,9 +320,10 @@ class Bot:
         for i in range(min(2, len(view.hand))):
             if self.hand_value(view, i) < self.JUNK_HAND_THRESHOLD:
                 offers.append(Offer(give_hand=(i,), want=ask))
-        if want and view.draft_picks_allowed and view.pick_capacity() >= 1:
-            pk = Pick(1, 1)
-            if self.card_value(view, want) > 2 * self.pick_cost(view, pk) + self.MIN_TRADE_GAIN:
+        # want a bean but nothing good to pay with -> always offer an EV-priced draft pick for it
+        if want and not any(o.want for o in offers):
+            pk = self.ev_pick(view, self.card_value(view, want), None, their_loss=0.3)
+            if pk:
                 offers.append(Offer(give_picks=(pk,), want=(want,)))
         return offers
 
@@ -354,7 +380,7 @@ class Bot:
 
     def solicit(self, view: PlayerView) -> Request | None:
         """Ask the active player for the flipped card I'd gain most from, paying with my
-        worst hand card if it's junk, otherwise a small draft pick if worth it, otherwise asking for it free."""
+        worst hand card if it's junk, otherwise an EV-priced draft pick, otherwise asking for it free."""
         best, best_net = None, self.MIN_TRADE_GAIN
         base = self.cards_value(view, view.pending)
         junk = min(range(len(view.hand)), key=lambda i: self.hand_value(view, i), default=None)
@@ -363,13 +389,12 @@ class Bot:
             gain = self.cards_value(view, list(view.pending) + [b]) - base
             if gain <= self.MIN_TRADE_GAIN:
                 continue
-            if junk is not None and junk_v < 0:
+            if junk is not None and junk_v < 0:      # a good trade: pay with a card I don't want
                 req, net = Request(give_hand=(junk,), want=(b,)), gain - junk_v
-            else:
-                pk = Pick(1, 1)
-                cost = self.pick_cost(view, pk, view.active) if view.draft_picks_allowed else 0
-                if view.draft_picks_allowed and view.pick_capacity() >= 1 and gain > 2 * cost + self.MIN_TRADE_GAIN:
-                    req, net = Request(give_picks=(pk,), want=(b,)), gain - cost
+            else:                                     # no good trade: always offer an EV-priced pick
+                pk = self.ev_pick(view, gain, view.active, self.their_card_value(view, view.active, b))
+                if pk:
+                    req, net = Request(give_picks=(pk,), want=(b,)), gain - self.pick_cost(view, pk, view.active)
                 else:
                     req, net = Request(want=(b,)), gain
             if net > best_net:

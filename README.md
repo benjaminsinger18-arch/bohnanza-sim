@@ -108,7 +108,7 @@ Every bot inherits a sensible strategy from `Bot`. The `baseline` bot plays it u
 | **Selling fields** | Sells a field once it pays and can't realistically grow any more. When forced, it sells the field that loses the least future value. |
 | **Third field** | Buys it for 3 coins while less than `THIRD_FIELD_MAX_PROGRESS` (60%) of the game has gone. |
 | **Trading** | Accepts a trade only if it gains more than `MIN_TRADE_GAIN` after subtracting what it pays and the partner's gain × `HELP_WEIGHT` (`LEADER_HELP_WEIGHT` if the partner leads). It offers away junk flips and front cards worth less than `JUNK_HAND_THRESHOLD`, first in exchange for a bean it grows and then as gifts. |
-| **Draft picks** | A pick's value is the flips it expects to want, discounted by `PICK_TURN_DISCOUNT` per turn of waiting. Its cost is the flips it would lose, plus the help the pick gives the holder. It promises a 1-card pick only when what it gets is worth at least twice the pick. |
+| **Draft picks** | A pick's value is the flips it expects to want, discounted by `PICK_TURN_DISCOUNT` per turn of waiting. Its cost is the flips it would lose, plus the help the pick gives the holder. **Whenever it wants a bean but has no junk card to pay with, it always offers an EV-priced pick.** That is the cheapest pick in `PICK_MENU` (1–2 cards × 1–3 turns) that's worth more to the partner than the card they'd give up, while costing the baseline less than the bean is worth. |
 
 ### Tuning settings
 
