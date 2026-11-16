@@ -26,6 +26,10 @@ def _report(a, run: str):
     if not rows:
         sys.exit("no results found - run a tournament first")
     st = compute(rows, load_runs(a.results_dir))
+    classes = discover(a.bots_dir)
+    st["bot_info"] = {k: {"description": classes[k].description if k in classes else "",
+                          "details": classes[k].details if k in classes else "(bot file no longer in bots/)"}
+                      for k in st["order"]}
     print(format_table(st))
     sub = f"{'all runs' if run == 'all' else 'run ' + rows[0].get('run', '?')} · {st['games']:,} games"
     out = build_report(st, Path(a.results_dir) / "report.html", subtitle=sub)

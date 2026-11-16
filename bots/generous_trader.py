@@ -4,6 +4,7 @@ from bohnanza import Bot, Offer, Request
 
 class GenerousTrader(Bot):
     description = "Gifts unwanted cards immediately (flipped and front-of-hand); pays 2-for-1."
+    details = ('Keeps fields clean at any cost: gives away every unusable flipped card plus front hand cards that would force a harvest, pays 2-for-1 for beans it wants, and accepts any trade that is not a net loss.')
 
     def propose_offers(self, view):
         offers = [Offer(give_flipped=(i,)) for i in self.unwanted_flipped(view)]

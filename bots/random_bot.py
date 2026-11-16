@@ -5,6 +5,7 @@ from bohnanza import Bot, Offer, Request
 class RandomBot(Bot):
     key = "random"
     description = "Random legal moves (baseline)."
+    details = ('Makes random legal moves. This is the floor every real strategy should beat.')
 
     def plant_second_card(self, view):
         return self.rng.random() < 0.5

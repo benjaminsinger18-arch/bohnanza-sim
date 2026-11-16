@@ -4,6 +4,7 @@ from bohnanza import Bot
 
 class Stingy(Bot):
     description = "Never trades or accepts gifts."
+    details = ('Never trades: no offers, no requests, and it refuses gifts.')
 
     def propose_offers(self, view):
         return []

@@ -6,6 +6,7 @@ PREFERRED = {"Blue", "Chili", "Stink", "Green", "Coffee", "Wax"}
 
 class Specialist(Bot):
     description = "Prefers common beans (Blue/Chili/Stink/Green, Coffee/Wax); dumps rare ones."
+    details = ('Prefers the common beans (Blue, Chili, Stink, Green, plus Coffee and Wax in the variant). Sacrifices and cashes out rare beans first and turns down trades for them.')
 
     def card_value(self, view, bean):
         v = super().card_value(view, bean)

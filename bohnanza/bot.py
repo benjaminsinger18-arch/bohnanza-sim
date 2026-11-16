@@ -13,7 +13,8 @@ from .trading import Deal, Offer, OfferView, Request
 class Bot:
     key: str | None = None       # CLI name; defaults to the module filename
     name: str | None = None      # display name; defaults to the class name
-    description: str = ""
+    description: str = ""     # one line, shown by `list`
+    details: str = ""         # longer explanation, shown in the report
 
     def __init__(self):
         self.seat: int = -1

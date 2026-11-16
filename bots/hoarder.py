@@ -4,6 +4,7 @@ from bohnanza import Bot
 
 class Hoarder(Bot):
     description = "Grows long fields; harvests only when maxed or forced; picky trader."
+    details = ('Grows long fields. Only plants a second card if it extends an existing field, keeping empty fields free, and only accepts traded beans it already grows.')
 
     def plant_second_card(self, view):
         # only if it extends an existing field (keeps empty fields free for flips/trades)

@@ -77,6 +77,12 @@ th:first-child, td:first-child { text-align: left; }
 .legend { display: flex; gap: 14px; flex-wrap: wrap; margin: 0 0 10px; font-size: 12.5px; color: var(--ink-2); }
 button.theme { background: var(--surface); color: var(--ink); border: 1px solid var(--border); border-radius: 8px; padding: 6px 12px; cursor: pointer; font: inherit; }
 .empty { color: var(--muted); padding: 30px 0; text-align: center; }
+.defaults { background: var(--page); border: 1px solid var(--border); border-radius: 10px; padding: 12px 16px; margin-bottom: 14px; color: var(--ink-2); }
+.defaults b { color: var(--ink); }
+.defaults ul, .insights { margin: 6px 0 0; padding-left: 20px; }
+.defaults li, .insights li { margin: 4px 0; }
+.insights b { color: var(--ink); }
+#meet td.what { text-align: left; white-space: normal; min-width: 320px; color: var(--ink-2); }
 @media (max-width: 760px) {
   .grid { grid-template-columns: 1fr; }
   .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -97,6 +103,24 @@ button.theme { background: var(--surface); color: var(--ink); border: 1px solid 
     <h2>Leaderboard</h2>
     <p class="note">Win rate with 95% confidence interval. “vs fair” = win rate ÷ fair share (1 ÷ players). Above 1.00× beats an average seat.</p>
     <div class="tablewrap"><table id="leader"></table></div>
+  </div>
+
+  <div class="card wide">
+    <h2>Meet the bots</h2>
+    <p class="note">Every bot starts from the same default playstyle and changes only a few decisions.</p>
+    <div class="defaults">
+      <b>The shared default:</b>
+      <ul>
+        <li><b>Planting:</b> the front card goes into a field already growing that bean, otherwise an empty field. A second card is planted only if it fits without forcing a harvest.</li>
+        <li><b>Forced harvest:</b> when a bean has nowhere to go, it harvests the field that pays the most right now.</li>
+        <li><b>Voluntary harvest:</b> only once a field can't earn any more coins.</li>
+        <li><b>Trading:</b> offers unusable flipped cards for a bean it grows, then gives them away. Accepts cards that fit if it can pay with beans it doesn't grow, and asks for flipped cards matching its fields.</li>
+      </ul>
+    </div>
+    <div class="tablewrap"><table id="meet"></table></div>
+    <h2 style="margin-top:18px">What stands out in this run</h2>
+    <p class="note">Generated from this run's numbers.</p>
+    <ul class="insights" id="insights"></ul>
   </div>
 
   <div class="card">
@@ -189,6 +213,46 @@ function leader() {
   document.getElementById("leader").innerHTML = h;
 }
 
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+
+function meet() {
+  const info = ST.bot_info || {};
+  let h = `<tr><th style="text-align:left">Bot</th><th style="text-align:left">What it does differently</th><th>Win rate</th><th>Avg coins</th></tr>`;
+  order.forEach(b => {
+    const i = info[b] || {}, s = ST.bots[b];
+    const what = i.details || i.description || "(no description - add `details` to the bot class)";
+    h += `<tr><td><span class="sw" style="background:${color(b)}"></span><b>${esc(b)}</b></td>
+      <td class="what">${esc(what)}</td><td>${pct(s.win_rate)}</td><td>${s.mean_coins.toFixed(1)}</td></tr>`;
+  });
+  document.getElementById("meet").innerHTML = h;
+
+  const B = ST.bots, out = [];
+  if (order.length >= 2) {
+    const [k1, k2] = order, a = B[k1], b = B[k2];
+    out.push(`<b>${esc(k1)}</b> wins most (${pct(a.win_rate)}, ${a.lift.toFixed(2)}× fair share)` +
+      (a.ci_lo <= b.ci_hi
+        ? `, but its lead over <b>${esc(k2)}</b> (${pct(b.win_rate)}) is within the margin of error. Run more games to separate them.`
+        : `, clearly ahead of <b>${esc(k2)}</b> (${pct(b.win_rate)}).`));
+    const med = arr => { const s = [...arr].sort((x, y) => x - y), m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
+    const real = order.filter(k => k !== "random");  // the random baseline would always "win" this one
+    const fm = real.length ? med(real.map(k => B[k].forced_pg)) : 0;
+    const mostF = real.length ? real.reduce((x, y) => B[y].forced_pg > B[x].forced_pg ? y : x) : null;
+    if (mostF && fm > 0 && B[mostF].forced_pg >= 1.5 * fm)
+      out.push(`<b>${esc(mostF)}</b> is forced to harvest most often: ${B[mostF].forced_pg.toFixed(1)} times a game against a median of ${fm.toFixed(1)}. Forced harvests usually break up fields before they pay.`);
+    order.filter(k => B[k].trades_pg === 0).forEach(k =>
+      out.push(`<b>${esc(k)}</b> never trades and wins ${pct(B[k].win_rate)} of games (${B[k].lift.toFixed(2)}× fair share).`));
+    const big = order.reduce((x, y) => B[y].avg_harvest_size > B[x].avg_harvest_size ? y : x);
+    out.push(`<b>${esc(big)}</b> harvests the biggest fields (${B[big].avg_harvest_size.toFixed(2)} cards on average) and ` +
+      (B[big].lift >= 1 ? `beats a fair share (${B[big].lift.toFixed(2)}×).` : `still falls short of a fair share (${B[big].lift.toFixed(2)}×), so clean fields alone don't win.`));
+    const gift = order.reduce((x, y) => B[y].gifts_pg > B[x].gifts_pg ? y : x);
+    if (B[gift].gifts_pg >= 1)
+      out.push(`<b>${esc(gift)}</b> gives away the most cards for free (${B[gift].gifts_pg.toFixed(1)} gifts a game), and every gift helps an opponent.`);
+    const viol = order.filter(k => B[k].violations > 0);
+    if (viol.length) out.push(`Rule violations from ${viol.map(esc).join(", ")}: the engine corrected them, but check those bots' code.`);
+  }
+  document.getElementById("insights").innerHTML = out.map(x => `<li>${x}</li>`).join("");
+}
+
 function behav() {
   const cols = [["trades_pg", "Trades", 1], ["gifts_pg", "Gifts given", 2], ["cards_given_pg", "Cards given", 1],
     ["cards_received_pg", "Cards received", 1], ["harvests_pg", "Harvests", 1], ["avg_harvest_size", "Cards / harvest", 2],
@@ -248,7 +312,7 @@ const lineDs = (b, data) => ({ label: b, data, borderColor: color(b), background
 
 function draw() {
   charts.splice(0).forEach(c => c.destroy());
-  tiles(); leader(); behav(); h2h();
+  tiles(); leader(); meet(); behav(); h2h();
   if (!order.length) return;
 
   // --- win rate bars + CI whiskers + fair-share line
