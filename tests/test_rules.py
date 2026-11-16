@@ -22,6 +22,7 @@ def test_base_deck_is_104_cards():
     ("Stink", 2, 0), ("Stink", 3, 1), ("Stink", 4, 1), ("Stink", 5, 2), ("Stink", 7, 3), ("Stink", 8, 4),
     ("Chili", 3, 1), ("Chili", 9, 4), ("Garden", 1, 0), ("Garden", 2, 2), ("Garden", 3, 3),
     ("Red", 2, 1), ("Red", 5, 4), ("Cocoa", 2, 2), ("Cocoa", 4, 4), ("Coffee", 12, 4),
+    ("Wax", 3, 0), ("Wax", 4, 1), ("Wax", 7, 2), ("Wax", 9, 3), ("Wax", 11, 4),
 ])
 def test_beanometer(bean, n, coins):
     assert payout(bean, n) == coins

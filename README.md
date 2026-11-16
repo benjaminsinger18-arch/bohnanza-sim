@@ -101,7 +101,7 @@ class MyBot(Bot):
   - **Re-trading:** cards received in a trade go beside the fields, never into the hand, so they can't be traded again.
   - **Paying for a request:** by default the active player pays with flipped cards first, then cards from the front of the hand. `choose_trade` can choose different cards with `deal.with_active_cards(...)`.
 - **Turn order:** seat 0 always starts. The win-rate-by-seat chart shows the effect of turn order.
-- **Wax Bean beanometer:** the values (4/8/11/13) are as printed in the supplied rulebook PDF. Some printings use 4/7/9/11, so edit `bohnanza/cards.py` if your cards differ.
+- **Wax Bean beanometer:** 4/7/9/11. The supplied rulebook PDF prints 4/8/11/13; edit `bohnanza/cards.py` to switch.
 - **Not implemented:** the 2-player Bean Duel.
 
 ## Tests

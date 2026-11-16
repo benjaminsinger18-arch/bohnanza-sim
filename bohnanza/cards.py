@@ -13,7 +13,7 @@ BEANS: dict[str, tuple[int, tuple]] = {
     "Garden":    (6,  (None, 2, 3, None)),
     # 3-7 player variant beans
     "Coffee":    (24, (4, 7, 10, 12)),
-    "Wax":       (22, (4, 8, 11, 13)),   # as printed in the supplied rulebook PDF
+    "Wax":       (22, (4, 7, 9, 11)),
     "Cocoa":     (4,  (None, 2, 3, 4)),
 }
 BASE_BEANS = ("Blue", "Chili", "Stink", "Green", "Soy", "BlackEyed", "Red", "Garden")
