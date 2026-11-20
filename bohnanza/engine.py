@@ -9,7 +9,7 @@ from .state import Field, PlayerState, PlayerView, OpponentInfo, can_harvest_fie
 from .trading import (MAX_PICK_CARDS_OWED, MAX_PICK_TURNS, Deal, Offer, OfferView, Pick,
                       PickInfo, Request)
 
-MAX_TRADE_ROUNDS = 10
+MAX_TRADE_ROUNDS = 20
 MAX_OFFERS = 8
 MAX_TURNS = 3000
 

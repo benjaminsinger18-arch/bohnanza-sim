@@ -379,3 +379,34 @@ def test_rare_bean_with_no_copies_left_is_sold():
     assert b.maybe_harvest(v) == [0]
     v2 = replace(v, fields=(("Blue", 6), (None, 0)))  # plenty of Blue still out there early on
     assert b.maybe_harvest(v2) == []
+
+
+# ---------------------------------------------------------------- baseline planting
+def _front(g, seat, beans):
+    """Put these beans at the front of a player's hand (swapping them in from the deck)."""
+    p = g.players[seat]
+    for b in reversed(beans):
+        g.deck.remove(b)
+        g.deck.append(p.hand.pop())
+        p.hand.insert(0, b)
+
+
+def test_baseline_keeps_second_card_that_would_kill_a_young_field():
+    g = _game(4, seed=5)
+    _put(g, 0, 0, "Blue", 1)
+    _put(g, 0, 1, "Chili", 1)
+    _front(g, 0, ["Stink"])
+    assert g.bots[0].plant_second_card(g.view(0)) is False
+    _front(g, 0, ["Blue"])
+    assert g.bots[0].plant_second_card(g.view(0)) is True
+    g.check_conservation()
+
+
+def test_baseline_offers_junk_front_card_away():
+    g = _game(4, seed=5)
+    _put(g, 0, 0, "Blue", 2)
+    _put(g, 0, 1, "Chili", 2)
+    _front(g, 0, ["Stink"])
+    v = g.view(0)
+    offers = g.bots[0].propose_offers(v)
+    assert any(o.give_hand == (0,) for o in offers)

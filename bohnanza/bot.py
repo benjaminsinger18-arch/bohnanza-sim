@@ -55,6 +55,8 @@ class Bot:
     THIRD_FIELD_MAX_PROGRESS = 0.6  # buy a 3rd field only if less than this share of the game is gone
     JUNK_HAND_THRESHOLD = -0.2      # front hand cards worth less than this get offered away
     PICK_MENU = ((1, 1), (1, 2), (2, 1), (1, 3), (2, 2), (2, 3))  # (cards, turns) picks I'm willing to offer
+    NEW_FIELD_GROWTH = 0.5          # 1-card fields rarely survive to grow: count only this share of their growth
+    CHURN_PENALTY = 1.0             # extra cost (coins) of killing a field that pays nothing
 
     def __init__(self):
         self.seat: int = -1
@@ -98,6 +100,8 @@ class Bot:
         k = ("fv", bean, count)
         if k not in c:
             reach = self.available(view, bean) * self.future_share(view) * (1.0 - view.progress)
+            if count == 1:
+                reach *= self.NEW_FIELD_GROWTH
             c[k] = max(float(payout(bean, count)), self.RISK_DISCOUNT * smooth_payout(bean, count + reach))
         return c[k]
 
@@ -127,7 +131,9 @@ class Bot:
             return self.field_value(view, bean, 1) - self.empty_field_value(view)
         j = self.pick_harvest(view)
         bj, cj = view.fields[j]
-        return payout(bj, cj) - self.field_value(view, bj, cj) + self.field_value(view, bean, 1)
+        pj = payout(bj, cj)
+        churn = self.CHURN_PENALTY if pj == 0 else 0.0
+        return pj - self.field_value(view, bj, cj) + self.field_value(view, bean, 1) - churn
 
     def after_planting(self, view: PlayerView, bean: str) -> PlayerView:
         """A copy of the view with this bean planted where I'd put it (for what-if maths)."""
@@ -172,8 +178,13 @@ class Bot:
 
     # ================================================================== phase 1
     def plant_second_card(self, view: PlayerView) -> bool:
-        """After the mandatory front card: also plant the (new) front card?"""
-        return self.card_value(view, view.hand[0]) >= 0
+        """After the mandatory front card: also plant the (new) front card?
+        Baseline: only if it extends a field, fills an empty one, or the field it would replace is
+        worth selling anyway. Otherwise keep it in hand and try to trade it away."""
+        b = view.hand[0]
+        if view.field_index(b) is not None or view.empty_field() is not None:
+            return True
+        return self.card_value(view, b) >= 0
 
     # ================================================================== planting
     def choose_field(self, view: PlayerView, bean: str) -> int:
@@ -314,15 +325,18 @@ class Bot:
         an EV-priced draft pick for it."""
         offers = []
         want = self.wanted_bean(view)
-        ask = (want,) if view.trade_round == 0 and want else ()
-        for i in self.unwanted_flipped(view):
-            offers.append(Offer(give_flipped=(i,), want=ask))
-        for i in range(min(2, len(view.hand))):
-            if self.hand_value(view, i) < self.JUNK_HAND_THRESHOLD:
-                offers.append(Offer(give_hand=(i,), want=ask))
+        # junk is sold for a bean I grow first, then for a 1-card 1-turn pick, then given away
+        r = view.trade_round
+        ask, ask_pick = ((want,), ()) if r == 0 and want else ((), ())
+        if r == 1 and view.draft_picks_allowed:
+            ask_pick = (Pick(1, 1),)
+        junk = [Offer(give_flipped=(i,), want=ask, want_picks=ask_pick) for i in self.unwanted_flipped(view)]
+        junk += [Offer(give_hand=(i,), want=ask, want_picks=ask_pick) for i in range(min(2, len(view.hand)))
+                 if self.hand_value(view, i) < self.JUNK_HAND_THRESHOLD]
+        offers += junk
         # want a bean but nothing good to pay with -> always offer an EV-priced draft pick for it
         if want and not any(o.want for o in offers):
-            pk = self.ev_pick(view, self.card_value(view, want), None, their_loss=0.3)
+            pk = self.ev_pick(view, self.card_value(view, want), None, their_loss=float("-inf"))
             if pk:
                 offers.append(Offer(give_picks=(pk,), want=(want,)))
         return offers
@@ -392,7 +406,7 @@ class Bot:
             if junk is not None and junk_v < 0:      # a good trade: pay with a card I don't want
                 req, net = Request(give_hand=(junk,), want=(b,)), gain - junk_v
             else:                                     # no good trade: always offer an EV-priced pick
-                pk = self.ev_pick(view, gain, view.active, self.their_card_value(view, view.active, b))
+                pk = self.ev_pick(view, gain, view.active, float("-inf"))
                 if pk:
                     req, net = Request(give_picks=(pk,), want=(b,)), gain - self.pick_cost(view, pk, view.active)
                 else:

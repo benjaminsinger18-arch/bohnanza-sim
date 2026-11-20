@@ -104,11 +104,11 @@ Every bot inherits a sensible strategy from `Bot`. The `baseline` bot plays it u
 |---|---|
 | **Field value** | The larger of what the field pays if sold now and `RISK_DISCOUNT` × where it can still grow. Growth is estimated from copies still out there (unseen, plus discards if the pile gets reshuffled again) × `FUTURE_SHARE` × the share of the game left. |
 | **Rare vs common beans** | Comes straight from the field-value estimate. Once few copies of a rare bean remain, its fields stop gaining value. Common beans keep growing. |
-| **Planting** | Extends a matching field, otherwise starts a new one. A second card is planted only if it's worth at least an average new field. |
+| **Planting** | Extends a matching field, otherwise starts a new one. A second hand card is planted only if it extends a field, fills an empty one, or replaces a field worth selling anyway. Killing a field that pays nothing costs an extra `CHURN_PENALTY` (1 coin), and 1-card fields count only `NEW_FIELD_GROWTH` (half) of their growth, so it stops churning its fields. |
 | **Selling fields** | Sells a field once it pays and can't realistically grow any more. When forced, it sells the field that loses the least future value. |
 | **Third field** | Buys it for 3 coins while less than `THIRD_FIELD_MAX_PROGRESS` (60%) of the game has gone. |
-| **Trading** | Accepts a trade only if it gains more than `MIN_TRADE_GAIN` after subtracting what it pays and the partner's gain × `HELP_WEIGHT` (`LEADER_HELP_WEIGHT` if the partner leads). It offers away junk flips and front cards worth less than `JUNK_HAND_THRESHOLD`, first in exchange for a bean it grows and then as gifts. |
-| **Draft picks** | A pick's value is the flips it expects to want, discounted by `PICK_TURN_DISCOUNT` per turn of waiting. Its cost is the flips it would lose, plus the help the pick gives the holder. **Whenever it wants a bean but has no junk card to pay with, it always offers an EV-priced pick.** That is the cheapest pick in `PICK_MENU` (1–2 cards × 1–3 turns) that's worth more to the partner than the card they'd give up, while costing the baseline less than the bean is worth. |
+| **Trading** | Accepts a trade only if it gains more than `MIN_TRADE_GAIN` after subtracting what it pays and the partner's gain × `HELP_WEIGHT` (`LEADER_HELP_WEIGHT` if the partner leads). It offers away junk flips and front cards worth less than `JUNK_HAND_THRESHOLD`: first for a bean it grows, then for a 1-card 1-turn pick, then as gifts. |
+| **Draft picks** | A pick's value is the flips it expects to want, discounted by `PICK_TURN_DISCOUNT` per turn of waiting. Its cost is the flips it would lose, plus the help the pick gives the holder. **Whenever it wants a bean but has no junk card to pay with, it always offers an EV-priced pick.** That is the cheapest pick in `PICK_MENU` (1–2 cards × 1–3 turns) that costs the baseline less than the bean is worth; the other player decides whether it's enough. |
 
 ### Tuning settings
 
@@ -119,6 +119,7 @@ class Bold(Bot):
     HELP_WEIGHT = 0.0                # doesn't care if trades help opponents
     THIRD_FIELD_MAX_PROGRESS = 1.0   # always buys the 3rd field
     RISK_DISCOUNT = 0.95             # more patient with growing fields
+    CHURN_PENALTY = 0.0              # doesn't mind killing young fields
 ```
 
 The building blocks are `field_value`, `card_value`, `cards_value`, `hand_value`, `pick_value`, `pick_cost`, `deal_score` and `help_weight`. You can override any of them, or call them from your own logic.
@@ -149,13 +150,13 @@ Draft picks are on by default. Turn them off with `--no-draft-picks`.
   - **Game end:** picks not yet used when the game ends are worthless.
 - **Order:** when several picks fall on the same turn, they're used in the order they were given.
 - **Seeing picks:** `view.draft_picks` lists every outstanding pick. `view.picks_held` and `view.picks_owed` filter it to yours.
-- **Default bot:** it never promises a pick, but it accepts picks it's offered. When using a pick, it takes only flipped cards that fit its fields.
+- **Default bot:** it offers EV-priced picks for beans it wants, sells junk cards for picks, and accepts picks worth more than they cost. When using a pick, it takes only flipped cards that fit its fields.
 - **Starter bots that trade picks:** `draft_dealer` and `big_spender`, both in `bots/draft_dealer.py`. `draft_dealer` promises 1 card for 1 turn. `big_spender` promises 2 cards for 2 turns.
 
 ## Rules notes and simplifications
 
 - **Harvest timing:** you can harvest "at any time" in the real game. Here, bots get the chance at the start of every phase, and a harvest also happens whenever planting forces one.
-- **Trading:** trading runs in up to 10 rounds per turn, and the active player completes at most one deal per round.
+- **Trading:** trading runs in up to 20 rounds per turn, and the active player completes at most one deal per round.
   - **Order within a round:** the active player makes offers, other players respond, other players make requests, and then the active player picks one deal.
   - **Re-trading:** cards received in a trade go beside the fields, never into the hand, so they can't be traded again.
   - **Paying for a request:** by default the active player pays with flipped cards first, then cards from the front of the hand. `choose_trade` can choose different cards with `deal.with_active_cards(...)`.

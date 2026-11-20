@@ -113,11 +113,11 @@ button.theme { background: var(--surface); color: var(--ink); border: 1px solid 
       <ul>
         <li><b>Field value:</b> what a field pays if sold now, or (if bigger) a discounted estimate of what it can still grow to, based on how many copies of that bean are still out there and how much of the game is left.</li>
         <li><b>Rare vs common beans:</b> rare beans (few copies left) stop gaining value quickly; common beans keep growing, so each card is worth its real contribution.</li>
-        <li><b>Planting:</b> extend a matching field, else start a new one. A second card is planted only if it's worth at least an empty field.</li>
+        <li><b>Planting:</b> extend a matching field, else start a new one. It plants a second hand card only if the card extends a field, fills an empty one, or replaces a field worth selling anyway. Killing a field that pays nothing costs an extra 1 coin in its maths, and 1-card fields count only half their growth, so it stops churning its fields.</li>
         <li><b>Selling fields:</b> sells once a field pays and can't realistically grow. When forced, sells the field that loses the least future value.</li>
         <li><b>Third field:</b> buys it for 3 coins while less than 60% of the game has gone.</li>
-        <li><b>Trading:</b> only trades when it gains coins after counting what it pays and the help it gives the partner (the help counts more if the partner is leading). It sells junk flips and junk front cards, and asks for the flipped card it would gain most from.</li>
-        <li><b>Draft picks:</b> prices a pick by the flips it expects to want, discounted for each turn of waiting. It promises a 1-card pick only when what it gets is worth at least twice the pick, and uses picks only on cards worth having.</li>
+        <li><b>Trading:</b> only trades when it gains coins after counting what it pays and the help it gives the partner (the help counts more if the partner is leading). Junk flips and front cards that would force a harvest are offered first for a bean it grows, then for a 1-card 1-turn pick, then as gifts. It asks for the flipped card it would gain most from.</li>
+        <li><b>Draft picks:</b> prices a pick by the flips it expects to want, discounted for each turn of waiting. Whenever it wants a bean and has no junk card to pay with, it offers the cheapest pick (1-2 cards, 1-3 turns) that costs it less than the bean is worth, and lets the other player decide whether that's enough. It uses picks only on cards worth having.</li>
       </ul>
     </div>
     <div class="tablewrap"><table id="meet"></table></div>
