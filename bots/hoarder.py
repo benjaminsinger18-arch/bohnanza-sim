@@ -1,22 +1,12 @@
-"""Grows fields big, only harvests when maxed or forced, and only accepts beans it already grows."""
+"""Patient: grows long fields and protects them; trades only for clear gains."""
 from bohnanza import Bot
 
 
 class Hoarder(Bot):
-    description = "Grows long fields; harvests only when maxed or forced; picky trader."
-    details = ('Grows long fields. Only plants a second card if it extends an existing field, keeping empty fields free, and only accepts traded beans it already grows.')
-
-    def plant_second_card(self, view):
-        # only if it extends an existing field (keeps empty fields free for flips/trades)
-        return view.field_index(view.hand[0]) is not None
-
-    def pick_harvest(self, view):
-        # when forced, cash the field that pays most right now; ties -> the bigger one
-        return max(view.harvestable(), key=lambda i: (view.field_payout(i), view.fields[i][1]))
-
-    def respond_to_offer(self, view, offer):
-        if offer.want_picks:  # never promises draft picks
-            return None
-        if not all(view.field_index(b) is not None for b in offer.gives):
-            return None
-        return self.find_payment(view, offer.want)
+    description = "Patient: counts 97% of future growth, guards fields hard, trades only for clear gains."
+    details = ("Thinks in coins like the baseline, but bets on growth: a field's future counts at 97% "
+               "(baseline 85%), killing a field that pays nothing costs it 2 coins (baseline 1), and it only "
+               "trades when it gains at least 0.4 coins. Aims for big harvests at the risk of being stuck.")
+    RISK_DISCOUNT = 0.97
+    CHURN_PENALTY = 2.0
+    MIN_TRADE_GAIN = 0.4

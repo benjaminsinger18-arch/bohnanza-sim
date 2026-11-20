@@ -1,33 +1,21 @@
-"""Keeps fields clean at any cost: gives away whatever doesn't fit, pays extra for beans it grows."""
-from bohnanza import Bot, Offer, Request
+"""Trades freely: doesn't mind helping opponents, takes any trade that doesn't cost it."""
+from bohnanza import Bot, Offer
 
 
 class GenerousTrader(Bot):
-    description = "Gifts unwanted cards immediately (flipped and front-of-hand); pays 2-for-1."
-    details = ('Keeps fields clean at any cost: gives away every unusable flipped card plus front hand cards that would force a harvest, pays 2-for-1 for beans it wants, and accepts any trade that is not a net loss.')
+    description = "Ignores how much trades help others; gives junk away at once; takes any non-losing trade."
+    details = ("Thinks in coins like the baseline, but only counts its own side of a trade: a partner's gain "
+               "doesn't count against it (baseline 25%, 60% vs the leader), any trade that isn't a loss is "
+               "accepted, and cards that would hurt its fields are given away immediately instead of being "
+               "sold first. Keeps its fields clean and makes friends, at the cost of feeding opponents.")
+    HELP_WEIGHT = 0.0
+    LEADER_HELP_WEIGHT = 0.0
+    MIN_TRADE_GAIN = 0.0
+    JUNK_HAND_THRESHOLD = 0.0
 
     def propose_offers(self, view):
-        offers = [Offer(give_flipped=(i,)) for i in self.unwanted_flipped(view)]
-        # also dump front hand cards that would force a harvest next turn
-        for i, b in enumerate(view.hand[:2]):
-            if not view.fits(b):
-                offers.append(Offer(give_hand=(i,)))
+        offers = super().propose_offers(view)
+        if view.trade_round == 0:  # give junk away now instead of selling it first
+            offers = [Offer(give_flipped=o.give_flipped, give_hand=o.give_hand, to=o.to)
+                      if (o.give_flipped or o.give_hand) and not o.give_picks else o for o in offers]
         return offers
-
-    def choose_trade(self, view, deals):
-        best = max(deals, key=lambda d: self.deal_score(view, d))
-        return best if self.deal_score(view, best) >= 0 else None
-
-    def respond_to_offer(self, view, offer):
-        if offer.want_picks:  # never promises draft picks
-            return None
-        if not view.fits_all(list(view.pending) + list(offer.gives)):
-            return None
-        return self.find_payment(view, offer.want, allow_field_beans=True)
-
-    def solicit(self, view):
-        for b in view.flipped:
-            if view.field_index(b) is not None:
-                junk = [i for i, h in enumerate(view.hand) if h not in view.my_beans][:2]
-                return Request(give_hand=tuple(junk), want=(b,))
-        return None

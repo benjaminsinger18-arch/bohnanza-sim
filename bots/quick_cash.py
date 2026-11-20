@@ -1,10 +1,10 @@
-"""Harvests every field the moment it is worth at least 1 coin."""
+"""Impatient: a coin now beats a bigger field later."""
 from bohnanza import Bot
 
 
 class QuickCash(Bot):
-    description = "Harvests as soon as a field reaches its first coin."
-    details = ('Harvests every field the moment it is worth 1 coin. Everything else uses the default.')
-
-    def maybe_harvest(self, view):
-        return [i for i in view.harvestable() if view.field_payout(i) >= 1]
+    description = "Impatient: counts only 60% of a field's future growth, so it cashes fields early."
+    details = ("Thinks in coins like the baseline, but trusts the future less: a field's growth counts at 60% "
+               "(baseline 85%), so it sells fields as soon as the coins in hand beat that discounted growth. "
+               "Smaller, safer harvests; fewer big payouts.")
+    RISK_DISCOUNT = 0.6

@@ -37,6 +37,23 @@ python -m bohnanza replay --seed 7 --bots hoarder,quick_cash,stingy,random   # o
 - Run metadata goes to `results/runs.jsonl`.
 - The dashboard is written to `results/report.html`.
 
+## Starter bots
+
+All of them think in coins, using the baseline's valuation; each one shifts a setting or two to express a playstyle. `stingy` and `random` are the exceptions, kept as floors.
+
+| Bot | Playstyle |
+|---|---|
+| `baseline` | The defaults, unchanged |
+| `quick_cash` | Impatient: `RISK_DISCOUNT = 0.6`, so it cashes fields early |
+| `hoarder` | Patient: `RISK_DISCOUNT = 0.97`, `CHURN_PENALTY = 2`, trades only for gains of 0.4+ coins |
+| `specialist` | Expects 1.4× the common beans and 0.6× the rare ones |
+| `generous_trader` | Ignores how much trades help others, gives junk away at once |
+| `draft_dealer` / `big_spender` | Pay with draft picks first (small / biggest affordable) |
+| `leader_hater` | Anything that helps the leader counts 3× against it; gifts go to everyone else |
+| `field_buyer` | Buys the 3rd field the moment it can, cashing a field early to afford it |
+| `stingy` | Never trades |
+| `random` | Random legal moves |
+
 ## Writing a bot
 
 Create `bots/my_bot.py`. Its key becomes the filename (`my_bot`), unless you set `key = "..."`. Override only the decisions you care about; everything else uses the defaults in `bohnanza/bot.py`.
@@ -151,7 +168,7 @@ Draft picks are on by default. Turn them off with `--no-draft-picks`.
 - **Order:** when several picks fall on the same turn, they're used in the order they were given.
 - **Seeing picks:** `view.draft_picks` lists every outstanding pick. `view.picks_held` and `view.picks_owed` filter it to yours.
 - **Default bot:** it offers EV-priced picks for beans it wants, sells junk cards for picks, and accepts picks worth more than they cost. When using a pick, it takes only flipped cards that fit its fields.
-- **Starter bots that trade picks:** `draft_dealer` and `big_spender`, both in `bots/draft_dealer.py`. `draft_dealer` promises 1 card for 1 turn. `big_spender` promises 2 cards for 2 turns.
+- **Starter bots that lean on picks:** `draft_dealer` and `big_spender`, both in `bots/draft_dealer.py`. `draft_dealer` pays with small picks (1 card, 1–2 turns) before hand cards. `big_spender` offers the biggest pick that still costs it less than it gains.
 
 ## Rules notes and simplifications
 
