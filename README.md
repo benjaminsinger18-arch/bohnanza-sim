@@ -1,73 +1,104 @@
-# Bohnanza Bot Lab
+# 🫘 Bohnanza Bot Lab
 
-Simulates thousands of Bohnanza games between bots you write, then reports which strategies win.
+**Let a dozen bean farmers play thousands of games of [Bohnanza](https://boardgamegeek.com/boardgame/11/bohnanza), and find out which strategy actually wins.**
 
-- **Rules:** the base game for 3–5 players (`--rules base`) and the 3–7 player variant with Cocoa, Wax and Coffee beans (`--rules variant`). Rules come from the Rio Grande rulebook.
-- **Rule enforcement:** hand order, the bean protection rule, the trade restrictions, deck run-outs and the tiebreak are all enforced.
-- **Bots:** each bot is a Python class in `bots/`.
-- **Output:** a terminal leaderboard plus an HTML dashboard.
+Each bot is a small Python class with its own playstyle: one hoards, one trades aggressively, one targets whoever is leading. The simulator runs the full base game at 3, 4 and 5 players, enforces every rule, and gives you a leaderboard and an HTML dashboard.
 
-## Quick start
+```
+bot                 games    win%   vs fair   coins
+---------------------------------------------------
+strategist           7966   29.0%     1.16x   14.26
+rare_hunter          7975   28.8%     1.15x   14.19
+field_grower         8086   28.7%     1.15x   14.28
+contrarian           7924   28.1%     1.13x   14.16
+specialist           8060   27.9%     1.12x   14.20
+...
+closer               8090   18.0%     0.72x   13.53
+```
+<sub>28,000 games, base rules, 3–5 players. "vs fair" is the win rate divided by 1 / players, so 1.00x is an average bot.</sub>
+
+---
+
+## ✨ What you get
+
+- 🎲 **The real game.** All of these are enforced: hand order, planting, the bean protection rule, trading, the third bean field, three passes through the deck, and the tiebreak.
+- 🤖 **14 ready-made bots** to play against each other, or against your own.
+- 📊 **Clear results.** You get win rates with confidence intervals, coins per game, and splits by table size and seat. There's also a turn-by-turn replay of any game.
+- 🧩 **Easy to extend.** Most new bots are a few lines that change one or two settings.
+
+## 🚀 Get started in a minute
+
+You need Python 3.10 or newer. Nothing else is required to run games; `pytest` is only for the tests.
 
 ```bash
-python -m bohnanza list                                   # bots it found
-python -m bohnanza run --bots strategist,hoarder,quick_cash,field_grower --games 5000 --report --open
-python -m bohnanza run --bots strategist,field_grower,rare_hunter,contrarian,specialist,generous_trader \
-       --rules variant --players 3-7 --games 5000 --report
-python -m bohnanza report --all                           # combine every run so far
-python -m bohnanza replay --seed 7 --bots strategist,hoarder,quick_cash,random   # one game, turn by turn
+git clone https://github.com/benjaminsinger18-arch/bohnanza-sim.git
+cd bohnanza-sim
+
+python -m bohnanza list                     # meet the bots
+python -m bohnanza run --bots strategist,field_grower,hoarder,quick_cash \
+                       --games 2000 --report --open
 ```
 
-`run` options:
-- **`--games N`:** how many games to play.
-- **`--seed S`:** makes results reproducible.
-- **`--players 4 | 3-5 | 3,5`:** table size or sizes.
-- **`--rules base|variant`:** which rule set.
-- **`--workers N`:** number of parallel processes (default: all cores but one).
+The last command plays 2,000 games, prints the leaderboard and opens the dashboard in your browser.
 
-### How bots are seated
+**Other things to try:**
 
-- **Same number of bots as seats:** the runner cycles through every seating order, so each bot plays each seat equally often.
-- **More bots than seats:** each game draws a random subset of bots.
-- **Fewer bots than seats:** some bots are repeated at the same table.
+```bash
+# A big free-for-all at every table size
+python -m bohnanza run --bots strategist,rare_hunter,contrarian,two_fields,leader_hater,trade_shark \
+                       --players 3-5 --games 10000 --report
 
-### Where results go
+# Watch one game unfold, turn by turn
+python -m bohnanza replay --seed 7 --bots strategist,hoarder,quick_cash,random
 
-- Every game is appended to `results/games.jsonl`, so history builds up across runs.
-- Run metadata goes to `results/runs.jsonl`.
-- The dashboard is written to `results/report.html`.
+# Build one dashboard from every run so far
+python -m bohnanza report --all
+```
 
-## Starter bots
+## 🧑‍🌾 Meet the bots
 
-All of them think in coins, using the strategist's valuation; each one shifts a setting or two to express a playstyle. `random` is the exception, kept as a floor.
+Every bot thinks in **coins**. They all share one valuation engine, the *strategist*, and each one shifts a setting or two to give it a personality.
 
-| Bot | Playstyle |
+| Bot | Personality |
 |---|---|
-| `strategist` | The defaults, unchanged |
-| `quick_cash` | Impatient: `RISK_DISCOUNT = 0.8` (strategist 1.0), so it cashes fields early |
-| `hoarder` | Picky: `CHURN_PENALTY = 2`, trades only for gains of 0.4+ coins |
-| `specialist` | Expects 1.4× the common beans and 0.6× the rare ones |
-| `generous_trader` | Ignores how much trades help others, gives junk away at once |
-| `draft_dealer` | Pays with small draft picks first |
-| `leader_hater` | Anything that helps the leader counts 3× against it; gifts go to everyone else |
-| `field_buyer` | Buys the 3rd field the moment it can, cashing a field early to afford it |
-| `two_fields` | Never buys a 3rd field (the strategist buys one at 4 players only) |
-| `field_grower` | +1.5 coins on every card that extends a field (strategist +0.75); killing a young field costs 2 |
-| `rare_hunter` | Expects 1.4× the rare beans and 0.7× the common ones |
-| `contrarian` | Expects 60% fewer copies of a bean for every rival field growing it (strategist 30%) |
-| `closer` | Counts 100% of growth early, falling to 50% by the end |
-| `trade_shark` | A partner's gain counts 80% against it (150% vs the leader); wants 0.2+ coins per trade |
-| `random` | Random legal moves |
+| 🧠 `strategist` | The well-rounded default that everyone else is measured against |
+| 🌱 `field_grower` | Loves growing fields and hates cutting them down young |
+| 💎 `rare_hunter` | Goes after the rare, high-value beans |
+| 🔄 `contrarian` | Avoids beans that rivals are already growing |
+| 🎯 `specialist` | Sticks to the common beans that keep coming |
+| ✌️ `two_fields` | Never buys a third bean field |
+| 🎟️ `draft_dealer` | Pays with draft picks instead of cards |
+| 🏗️ `field_buyer` | Buys the third field as soon as it can afford it |
+| 😠 `leader_hater` | Won't help whoever is winning |
+| 🐿️ `hoarder` | Picky: trades only for a clear gain |
+| 🎁 `generous_trader` | Gives junk away freely, without caring who benefits |
+| 🦈 `trade_shark` | Hates letting a trade partner gain anything |
+| 💸 `quick_cash` | Impatient: sells fields early |
+| ⏱️ `closer` | Plays for the long game early and cashes out late |
+| 🎲 `random` | Makes random legal moves (the floor) |
 
-## Writing a bot
+## 🛠️ Write your own bot
 
-Create `bots/my_bot.py`. Its key becomes the filename (`my_bot`), unless you set `key = "..."`. Override only the decisions you care about; everything else uses the defaults in `bohnanza/bot.py`.
+Drop a file into `bots/` and it joins the roster automatically. The simplest bots just change a setting:
 
 ```python
-from bohnanza import Bot, Offer, Request
+# bots/gambler.py
+from bohnanza import Bot
 
-class MyBot(Bot):
-    description = "Harvests at 2 coins, never plants a second card."
+class Gambler(Bot):
+    description = "Always buys a third field and never sells early."
+    THIRD_FIELD_MAX_PROGRESS = 1.0
+    THIRD_FIELD_MAX_PLAYERS = 99
+    RISK_DISCOUNT = 1.2
+```
+
+When you want full control, override a decision:
+
+```python
+from bohnanza import Bot
+
+class Stubborn(Bot):
+    description = "Never plants a second card; harvests only at 2+ coins."
 
     def plant_second_card(self, view):
         return False
@@ -76,118 +107,147 @@ class MyBot(Bot):
         return [i for i in view.harvestable() if view.field_payout(i) >= 2]
 ```
 
-### Decision hooks
+Then put it against the others:
+
+```bash
+python -m bohnanza run --bots gambler,strategist,field_grower,rare_hunter --games 5000 --report --open
+```
+
+If a bot returns an illegal move, the engine plays the default move instead and counts it as a **violation** in the report, so a buggy bot never crashes a tournament. To make illegal moves raise an error while debugging, use `Game(..., strict=True)`.
+
+---
+
+## 📖 Reference
+
+<details>
+<summary><b>Command-line options</b></summary>
+
+| Command | What it does |
+|---|---|
+| `list` | Show the bots it found |
+| `run` | Run a tournament |
+| `report` | Build the HTML dashboard (`--all` combines every run, `--run ID` shows one run) |
+| `replay` | Print one game, turn by turn |
+
+`run` options:
+
+| Option | Meaning |
+|---|---|
+| `--bots a,b,c` | Which bots play |
+| `--games N` | How many games to play |
+| `--players 4` · `3-5` · `3,5` | Table size or sizes |
+| `--seed S` | Makes results reproducible |
+| `--workers N` | Parallel processes (default: all cores but one) |
+| `--report` / `--open` | Build the dashboard, and open it |
+| `--no-third-field` / `--no-draft-picks` | Turn off those rules |
+
+**How bots are seated:**
+- **Same number of bots as seats:** every seating order is cycled, so each bot plays each seat equally often.
+- **More bots than seats:** each game draws a random subset.
+- **Fewer bots than seats:** some bots are repeated at the same table.
+
+**Where results go** (`results/`, not committed to git):
+- `games.jsonl`: every game, appended across runs.
+- `runs.jsonl`: run metadata.
+- `report.html`: the dashboard.
+
+</details>
+
+<details>
+<summary><b>Decision hooks a bot can override</b></summary>
 
 | Hook | When | Return |
 |---|---|---|
 | `plant_second_card(view)` | Phase 1, after the mandatory front card | `bool` |
 | `choose_field(view, bean)` | Every time a bean is planted | field index. Picking a field that holds a different bean harvests it first. |
 | `maybe_harvest(view)` | Start of every phase, for every player | list of field indices to harvest now |
-| `plant_order(view, cards)` | Phase 3 | the same cards in the order you want them planted |
+| `plant_order(view, cards)` | Phase 3 | the same cards, in the order to plant them |
 | `propose_offers(view)` | Phase 2, active player, each trade round | `list[Offer]` |
 | `respond_to_offer(view, offer)` | Phase 2, other players | hand indices whose beans exactly match `offer.want`, `()` to accept a gift, or `None` to decline |
-| `solicit(view)` | Phase 2, other players | a `Request` (your hand cards → beans you want from the active player), or `None` |
+| `solicit(view)` | Phase 2, other players | a `Request` (your hand cards for beans you want from the active player), or `None` |
 | `choose_trade(view, deals)` | Phase 2, active player | one `Deal`, or `None` to stop trading |
-| `draft_pick(view, count)` | Phase 2, right after the flip, when you hold a pick on the active player | up to `count` indices into `view.flipped` to take (`()` = pass) |
+| `draft_pick(view, count)` | Right after the flip, when you hold a pick on the active player | up to `count` indices into `view.flipped` (`()` = pass) |
 | `buy_third_field(view)` | Start of every phase, and before a forced harvest, when you can afford it | `bool` |
-| `pick_value(view, pick)` / `pick_cost(view, pick, holder)` | Used by the default trade scoring | what a `Pick` is worth to receive / costs to promise, in coins |
+| `pick_value(view, pick)` / `pick_cost(view, pick, holder)` | Used by the default trade scoring | coins |
 
-`Bot` also provides helpers you can override and reuse: `card_value`, `pick_harvest`, `unwanted_flipped`, `find_payment` and `deal_score`. Each bot gets a seeded `self.rng`.
+`Bot` also provides helpers you can reuse or override: `field_value`, `card_value`, `cards_value`, `hand_value`, `pick_harvest`, `unwanted_flipped`, `find_payment`, `deal_score` and `help_weight`. Each bot gets a seeded `self.rng`.
 
-### What a bot can see (`view`)
+</details>
 
-**Your own state:**
-- `hand`: in order, index 0 is the front card
-- `fields`: a tuple of `(bean, count)`
-- `coins`
-- `pending`: cards you received in a trade, which must be planted in phase 3
+<details>
+<summary><b>What a bot can see (<code>view</code>)</b></summary>
 
-**Opponents:** `opponents` lists each one's fields, coins and hand size. Their hand contents are hidden.
+- **Your own state:**
+  - `hand`: in order; index 0 is the front card
+  - `fields`: a tuple of `(bean, count)`
+  - `coins`
+  - `pending`: cards you got in a trade, which must be planted in phase 3
+- **Opponents:** `opponents` lists each one's fields, coins and hand size. Their hand contents are hidden.
+- **The table and turn:**
+  - `flipped`, `discard`, `deck_size`, `deck_counts`, `removed`
+  - `exhaustions` and `end_exhaustions`: how many times the deck has run out, and how many end the game
+  - `active`, `phase`, `turn`, `trade_round`, `progress`, `num_players`
+- **Helpers:**
+  - `payout(bean, n)`, `field_payout(i)`, `next_coin(i)`, `is_maxed(i)`
+  - `field_index(bean)`, `empty_field()`, `fits(bean)`, `fits_all(beans)`
+  - `can_harvest(i)`, `harvestable()`, `legal_fields(bean)`, `remaining_unseen(bean)`
+  - `third_field_cost`, `draft_picks`, `picks_held`, `picks_owed`, `pick_capacity()`
 
-**The table and turn:**
-- `flipped`, `discard`, `deck_size`
-- `exhaustions` and `end_exhaustions`: how many times the deck has run out, and how many end the game
-- `removed`: cards turned into coins
-- `deck_counts`
-- `active`, `phase`, `turn`, `trade_round`, `rules`
+</details>
 
-**Helpers:**
-- `payout(bean, n)`, `field_payout(i)`, `next_coin(i)`, `is_maxed(i)`
-- `field_index(bean)`, `empty_field()`, `fits(bean)`, `fits_all(beans)`
-- `can_harvest(i)`, `harvestable()`, `legal_fields(bean)`, `remaining_unseen(bean)`
+<details>
+<summary><b>How the strategist thinks</b></summary>
 
-**Illegal moves:** if a bot returns something illegal, or raises an exception, the engine substitutes the default decision and counts a **violation**. The violation count appears in the report. To make illegal moves raise an error instead (useful while debugging), use `Game(..., strict=True)`.
-
-## The strategist (the default strategy)
-
-Every bot inherits a sensible strategy from `Bot`. The `strategist` bot plays it unchanged, so you can measure your ideas against it. It judges every decision in coins:
-
-| Decision | Strategist rule |
+| Decision | Rule |
 |---|---|
-| **Field value** | The larger of what the field pays if sold now and `RISK_DISCOUNT` × where it can still grow. Growth is estimated from copies still out there (unseen, plus discards if the pile gets reshuffled again) × `FUTURE_SHARE` × the share of the game left. |
-| **Rare vs common beans** | Comes straight from the field-value estimate. Once few copies of a rare bean remain, its fields stop gaining value. Common beans keep growing. It also expects `RIVAL_CUT` (30%) fewer copies of a bean for every opponent field already growing it, so it prefers beans nobody else is collecting. |
-| **Planting** | Extends a matching field, otherwise starts a new one. A second hand card is planted only if it extends a field, fills an empty one, or replaces a field worth selling anyway. Killing a field that pays nothing costs an extra `CHURN_PENALTY` (1 coin), and 1-card fields count only `NEW_FIELD_GROWTH` (half) of their growth, so it stops churning its fields. Every card that extends one of its fields is worth an extra `GROW_BONUS` (0.75 coin), so it trades hard for its own beans. `RISK_DISCOUNT` is 1.0: a field's expected growth counts in full. |
-| **Selling fields** | Sells a field once it pays and can't realistically grow any more. When forced, it sells the field that loses the least future value. |
-| **Third field** | Buys it for 3 coins at tables of up to `THIRD_FIELD_MAX_PLAYERS` (4) players, while less than `THIRD_FIELD_MAX_PROGRESS` (60%) of the game has gone. |
-| **Trading** | Accepts a trade only if it gains more than `MIN_TRADE_GAIN` after subtracting what it pays and the partner's gain × `HELP_WEIGHT` (`LEADER_HELP_WEIGHT` if the partner leads). It offers away junk flips and front cards worth less than `JUNK_HAND_THRESHOLD`: first for a bean it grows, then for a 1-card 1-turn pick, then as gifts. |
-| **Draft picks** | A pick's value is the flips it expects to want, discounted by `PICK_TURN_DISCOUNT` per turn of waiting. Its cost is the flips it would lose, plus the help the pick gives the holder. **Whenever it wants a bean but has no junk card to pay with, it always offers an EV-priced pick.** That is the cheapest pick in `PICK_MENU` (1–2 cards × 1–3 turns) that costs the strategist less than the bean is worth; the other player decides whether it's enough. |
+| **Field value** | The larger of what the field pays if sold now and `RISK_DISCOUNT` × where it can still grow. Growth is estimated from the copies still out there: unseen cards, plus discards if the deck gets reshuffled again. |
+| **Rare vs common beans** | Comes straight from the field-value estimate. Once few copies of a rare bean remain, its fields stop gaining value. It also expects `RIVAL_CUT` (30%) fewer copies of a bean for every opponent field already growing it. |
+| **Planting** | It plants a second hand card only if the card extends a field, fills an empty one, or replaces a field worth selling anyway. Killing a field that pays nothing costs an extra `CHURN_PENALTY`. Every card that extends a field is worth a bonus `GROW_BONUS`. |
+| **Selling fields** | Sells once a field pays and can't realistically grow. When forced to sell, it gives up the field that loses the least future value. |
+| **Third field** | Buys one at tables of up to `THIRD_FIELD_MAX_PLAYERS` (4), while less than `THIRD_FIELD_MAX_PROGRESS` (60%) of the game has gone. |
+| **Trading** | Accepts a trade only if it gains more than `MIN_TRADE_GAIN`, after subtracting the partner's gain × `HELP_WEIGHT` (`LEADER_HELP_WEIGHT` if the partner is leading). It offers away junk, first for a bean it needs, then for a small pick, and finally as a gift. |
+| **Draft picks** | Values a pick by the flips it expects to want. When it wants a bean but has no junk card to pay with, it offers the cheapest pick that costs less than the bean is worth. |
 
-### Tuning settings
+All of these are class attributes, so you can tune them without rewriting any methods.
 
-Change any of these with a class attribute; there's no need to rewrite methods:
+</details>
 
-```python
-class Bold(Bot):
-    HELP_WEIGHT = 0.0                # doesn't care if trades help opponents
-    THIRD_FIELD_MAX_PROGRESS = 1.0   # always buys the 3rd field
-    RISK_DISCOUNT = 0.8              # less patient with growing fields
-    CHURN_PENALTY = 0.0              # doesn't mind killing young fields
-```
+<details>
+<summary><b>House rules: third field and draft picks</b></summary>
 
-The building blocks are `field_value`, `card_value`, `cards_value`, `hand_value`, `pick_value`, `pick_cost`, `deal_score` and `help_weight`. You can override any of them, or call them from your own logic.
+**Third bean field.** This is the classic rule, and it's on by default.
+- In games where players start with 2 fields, a player can buy a third for 3 coins.
+- Bots are asked whether to buy at the start of every phase, and just before a forced harvest.
+- The 3 coin cards go back onto the discard pile.
 
-## Third bean field (classic rule)
-
-This rule is on by default. Turn it off with `--no-third-field`.
-
-- **The rule:** in games where players start with 2 fields, a player can buy a third for 3 coins.
-- **When bots are asked:** at the start of every phase, and just before a forced harvest.
-- **The hook:** `buy_third_field(view) -> bool`. `view.third_field_cost` is the price, or `None` if you can't buy one.
-- **What happens to the coins:** the 3 coin cards go back into circulation on the discard pile.
-
-## Draft picks (house rule)
-
-Draft picks are on by default. Turn them off with `--no-draft-picks`.
-
-- **What a pick is:** `Pick(cards, turns)` is a promise by the player who gives it. On each of the giver's next `turns` turns, right after the 2 cards are flipped and before any trading, the holder takes up to `cards` (1 or 2) of them for free.
-- **Planting:** cards taken with a pick go beside the holder's fields and must be planted in phase 3, the same as traded cards.
-- **How picks change hands:** picks are traded like cards during phase 2.
-  - **Active player:** `Offer(give_picks=..., want_picks=...)` gives picks to, or asks for picks from, another player.
-  - **Other players:** `Request(give_picks=..., want_picks=...)` does the same towards the active player.
-  - **Gifts:** a pick can be given on its own, with nothing asked in return.
+**Draft picks.** This is a house rule, on by default.
+- **What a pick is:** `Pick(cards, turns)` is a promise from the player who gives it. On each of the giver's next `turns` turns, right after the flip, the holder takes up to `cards` (1 or 2) of the flipped cards for free.
+- **Trading picks:** picks are traded like cards in phase 2, using `give_picks` and `want_picks` on an `Offer` or a `Request`. A pick can also be given on its own, as a gift.
 - **Limits:**
-  - **2-card cap:** a player can never owe more than 2 cards across all their outstanding picks. Use `view.pick_capacity()` to check what's left.
-  - **Length:** a pick lasts at most 10 turns.
-  - **No passing on:** a holder can't trade a pick to someone else.
-  - **Game end:** picks not yet used when the game ends are worthless.
-- **Order:** when several picks fall on the same turn, they're used in the order they were given.
-- **Seeing picks:** `view.draft_picks` lists every outstanding pick. `view.picks_held` and `view.picks_owed` filter it to yours.
-- **Default bot:** it offers EV-priced picks for beans it wants, sells junk cards for picks, and accepts picks worth more than they cost. When using a pick, it takes only flipped cards that fit its fields.
-- **Starter bot that leans on picks:** `draft_dealer` (`bots/draft_dealer.py`) pays with small picks (1 card, 1–2 turns) before hand cards.
+  - A player can never owe more than 2 cards across all their outstanding picks.
+  - A pick lasts at most 10 turns.
+  - A holder can't pass a pick on to someone else.
+  - Picks not used by the end of the game are worthless.
 
-## Rules notes and simplifications
+</details>
 
-- **Harvest timing:** you can harvest "at any time" in the real game. Here, bots get the chance at the start of every phase, and a harvest also happens whenever planting forces one.
-- **Trading:** trading runs in up to 20 rounds per turn, and the active player completes at most one deal per round.
-  - **Order within a round:** the active player makes offers, other players respond, other players make requests, and then the active player picks one deal.
-  - **Re-trading:** cards received in a trade go beside the fields, never into the hand, so they can't be traded again.
-  - **Paying for a request:** by default the active player pays with flipped cards first, then cards from the front of the hand. `choose_trade` can choose different cards with `deal.with_active_cards(...)`.
-- **Turn order:** seat 0 always starts. The win-rate-by-seat chart shows the effect of turn order.
-- **Wax Bean beanometer:** 4/7/9/11. The supplied rulebook PDF prints 4/8/11/13; edit `bohnanza/cards.py` to switch.
+<details>
+<summary><b>Rules notes and simplifications</b></summary>
+
+- **Rules source:** the Rio Grande rulebook. The base game is 3–5 players: the deck is played through 3 times, and the active player draws 3 cards. The 3–7 player variant with Cocoa, Wax and Coffee beans is still available with `--rules variant`.
+- **Harvest timing:** in the real game you can harvest "at any time". Here, bots get the chance at the start of every phase, and a harvest also happens whenever planting forces one.
+- **Trading:**
+  - Trading runs for up to 20 rounds per turn.
+  - The active player completes at most one deal per round.
+  - Cards received in a trade must be planted, so they can't be traded again.
+- **Turn order:** seat 0 always starts. The dashboard's win-by-seat chart shows the effect of turn order.
 - **Not implemented:** the 2-player Bean Duel.
 
-## Tests
+</details>
+
+## 🧪 Tests
 
 ```bash
+pip install -r requirements.txt
 python -m pytest -q
 ```
