@@ -1,10 +1,10 @@
-"""Baseline: random legal choices everywhere. Everything should beat this."""
+"""Floor: random legal choices everywhere. Everything should beat this."""
 from bohnanza import Bot, Offer, Request
 
 
 class RandomBot(Bot):
     key = "random"
-    description = "Random legal moves (baseline)."
+    description = "Random legal moves (the floor)."
     details = ('Makes random legal moves. This is the floor every real strategy should beat.')
 
     def plant_second_card(self, view):

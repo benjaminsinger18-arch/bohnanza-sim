@@ -1,7 +1,7 @@
-"""Bot base class: a healthy baseline strategy. Subclass it in bots/<your_bot>.py and
+"""Bot base class: a healthy strategist strategy. Subclass it in bots/<your_bot>.py and
 override only what you want (or just tweak the tuning knobs).
 
-How the baseline thinks
+How the strategist thinks
 -----------------------
 Everything is measured in coins.
 
@@ -179,7 +179,7 @@ class Bot:
     # ================================================================== phase 1
     def plant_second_card(self, view: PlayerView) -> bool:
         """After the mandatory front card: also plant the (new) front card?
-        Baseline: only if it extends a field, fills an empty one, or the field it would replace is
+        Strategist: only if it extends a field, fills an empty one, or the field it would replace is
         worth selling anyway. Otherwise keep it in hand and try to trade it away."""
         b = view.hand[0]
         if view.field_index(b) is not None or view.empty_field() is not None:
@@ -213,7 +213,7 @@ class Bot:
     # ================================================================== selling fields
     def maybe_harvest(self, view: PlayerView) -> list[int]:
         """Voluntary sales, offered at the start of every phase.
-        Baseline: sell a field once it pays and can't realistically grow any more."""
+        Strategist: sell a field once it pays and can't realistically grow any more."""
         out = []
         for i in view.harvestable():
             b, c = view.fields[i]
@@ -224,7 +224,7 @@ class Bot:
 
     # ================================================================== third field
     def buy_third_field(self, view: PlayerView) -> bool:
-        """Offered whenever you can afford a 3rd field. Baseline: buy it if the game is young enough."""
+        """Offered whenever you can afford a 3rd field. Strategist: buy it if the game is young enough."""
         return (view.third_field_cost is not None and view.coins >= view.third_field_cost
                 and view.progress < self.THIRD_FIELD_MAX_PROGRESS)
 
@@ -320,7 +320,7 @@ class Bot:
         return max(view.my_beans, key=lambda b: self.card_value(view, b), default=None)
 
     def propose_offers(self, view: PlayerView) -> list[Offer]:
-        """Baseline: sell unwanted flipped cards and junk front hand cards (first for a bean
+        """Strategist: sell unwanted flipped cards and junk front hand cards (first for a bean
         I grow, then as gifts). When I want a bean but have nothing good to pay with, I always offer
         an EV-priced draft pick for it."""
         offers = []

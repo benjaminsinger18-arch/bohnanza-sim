@@ -4,8 +4,8 @@ from bohnanza import Bot, Offer
 
 class GenerousTrader(Bot):
     description = "Ignores how much trades help others; gives junk away at once; takes any non-losing trade."
-    details = ("Thinks in coins like the baseline, but only counts its own side of a trade: a partner's gain "
-               "doesn't count against it (baseline 25%, 60% vs the leader), any trade that isn't a loss is "
+    details = ("Thinks in coins like the strategist, but only counts its own side of a trade: a partner's gain "
+               "doesn't count against it (strategist 25%, 60% vs the leader), any trade that isn't a loss is "
                "accepted, and cards that would hurt its fields are given away immediately instead of being "
                "sold first. Keeps its fields clean and makes friends, at the cost of feeding opponents.")
     HELP_WEIGHT = 0.0

@@ -109,7 +109,7 @@ button.theme { background: var(--surface); color: var(--ink); border: 1px solid 
     <h2>Meet the bots</h2>
     <p class="note">Every bot starts from the same default playstyle and changes only a few decisions.</p>
     <div class="defaults">
-      <b>The shared baseline</b> (the <code>baseline</code> bot plays it unchanged). Everything is judged in coins:
+      <b>The shared strategy</b> (the <code>strategist</code> bot plays it unchanged). Everything is judged in coins:
       <ul>
         <li><b>Field value:</b> what a field pays if sold now, or (if bigger) a discounted estimate of what it can still grow to, based on how many copies of that bean are still out there and how much of the game is left.</li>
         <li><b>Rare vs common beans:</b> rare beans (few copies left) stop gaining value quickly; common beans keep growing, so each card is worth its real contribution.</li>
@@ -245,7 +245,7 @@ function meet() {
         ? `, but its lead over <b>${esc(k2)}</b> (${pct(b.win_rate)}) is within the margin of error. Run more games to separate them.`
         : `, clearly ahead of <b>${esc(k2)}</b> (${pct(b.win_rate)}).`));
     const med = arr => { const s = [...arr].sort((x, y) => x - y), m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
-    const real = order.filter(k => k !== "random");  // the random baseline would always "win" this one
+    const real = order.filter(k => k !== "random");  // the random floor would always "win" this one
     const fm = real.length ? med(real.map(k => B[k].forced_pg)) : 0;
     const mostF = real.length ? real.reduce((x, y) => B[y].forced_pg > B[x].forced_pg ? y : x) : null;
     if (mostF && fm > 0 && B[mostF].forced_pg >= 1.5 * fm)

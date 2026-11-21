@@ -4,9 +4,9 @@ from bohnanza import Bot, Offer
 
 class LeaderHater(Bot):
     description = "Treats every coin the leader gains as costing it 3; steers gifts to the other players."
-    details = ("Thinks in coins like the baseline, but the leader (the richest opponent, if they're level with "
+    details = ("Thinks in coins like the strategist, but the leader (the richest opponent, if they're level with "
                "it or ahead) is the enemy: anything a trade, gift or draft pick gives the leader counts 3x "
-               "against it (baseline 0.6x), it won't ask the leader for cards unless it pays with junk the "
+               "against it (strategist 0.6x), it won't ask the leader for cards unless it pays with junk the "
                "leader can't use, and its giveaways go only to the other players.")
     LEADER_HATE = 3.0
 

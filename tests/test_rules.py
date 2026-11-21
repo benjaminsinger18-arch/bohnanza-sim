@@ -330,7 +330,7 @@ def test_buy_third_field_pays_coins_back_into_discard():
     _put(g, 0, 0, "Red", 5)
     g.harvest(0, 0)  # 5 Red -> 4 coins
     disc_before = len(g.discard)
-    g.offer_field(0)  # baseline buys early in the game
+    g.offer_field(0)  # strategist buys early in the game
     assert len(p.fields) == 3 and p.coins == 1 and len(p.coin_cards) == 1
     assert len(g.discard) == disc_before + 3 and p.stats["bought_third_field"] == 1
     g.check_conservation()
@@ -368,10 +368,10 @@ def test_buy_offered_before_forced_harvest():
     g.check_conservation()
 
 
-# ---------------------------------------------------------------- baseline valuation
+# ---------------------------------------------------------------- strategist valuation
 def test_rare_bean_with_no_copies_left_is_sold():
     from bohnanza.registry import make_bot
-    b = make_bot("baseline")
+    b = make_bot("strategist")
     g = Game([b, Bot(), Bot(), Bot()], seed=0)
     v = g.view(0)
     from dataclasses import replace
@@ -381,7 +381,7 @@ def test_rare_bean_with_no_copies_left_is_sold():
     assert b.maybe_harvest(v2) == []
 
 
-# ---------------------------------------------------------------- baseline planting
+# ---------------------------------------------------------------- strategist planting
 def _front(g, seat, beans):
     """Put these beans at the front of a player's hand (swapping them in from the deck)."""
     p = g.players[seat]
@@ -391,7 +391,7 @@ def _front(g, seat, beans):
         p.hand.insert(0, b)
 
 
-def test_baseline_keeps_second_card_that_would_kill_a_young_field():
+def test_strategist_keeps_second_card_that_would_kill_a_young_field():
     g = _game(4, seed=5)
     _put(g, 0, 0, "Blue", 1)
     _put(g, 0, 1, "Chili", 1)
@@ -402,7 +402,7 @@ def test_baseline_keeps_second_card_that_would_kill_a_young_field():
     g.check_conservation()
 
 
-def test_baseline_offers_junk_front_card_away():
+def test_strategist_offers_junk_front_card_away():
     g = _game(4, seed=5)
     _put(g, 0, 0, "Blue", 2)
     _put(g, 0, 1, "Chili", 2)

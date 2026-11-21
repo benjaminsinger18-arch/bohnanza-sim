@@ -39,11 +39,11 @@ python -m bohnanza replay --seed 7 --bots hoarder,quick_cash,stingy,random   # o
 
 ## Starter bots
 
-All of them think in coins, using the baseline's valuation; each one shifts a setting or two to express a playstyle. `stingy` and `random` are the exceptions, kept as floors.
+All of them think in coins, using the strategist's valuation; each one shifts a setting or two to express a playstyle. `stingy` and `random` are the exceptions, kept as floors.
 
 | Bot | Playstyle |
 |---|---|
-| `baseline` | The defaults, unchanged |
+| `strategist` | The defaults, unchanged |
 | `quick_cash` | Impatient: `RISK_DISCOUNT = 0.6`, so it cashes fields early |
 | `hoarder` | Patient: `RISK_DISCOUNT = 0.97`, `CHURN_PENALTY = 2`, trades only for gains of 0.4+ coins |
 | `specialist` | Expects 1.4× the common beans and 0.6× the rare ones |
@@ -113,11 +113,11 @@ class MyBot(Bot):
 
 **Illegal moves:** if a bot returns something illegal, or raises an exception, the engine substitutes the default decision and counts a **violation**. The violation count appears in the report. To make illegal moves raise an error instead (useful while debugging), use `Game(..., strict=True)`.
 
-## The baseline strategy
+## The strategist (the default strategy)
 
-Every bot inherits a sensible strategy from `Bot`. The `baseline` bot plays it unchanged, so you can measure your ideas against it. It judges every decision in coins:
+Every bot inherits a sensible strategy from `Bot`. The `strategist` bot plays it unchanged, so you can measure your ideas against it. It judges every decision in coins:
 
-| Decision | Baseline rule |
+| Decision | Strategist rule |
 |---|---|
 | **Field value** | The larger of what the field pays if sold now and `RISK_DISCOUNT` × where it can still grow. Growth is estimated from copies still out there (unseen, plus discards if the pile gets reshuffled again) × `FUTURE_SHARE` × the share of the game left. |
 | **Rare vs common beans** | Comes straight from the field-value estimate. Once few copies of a rare bean remain, its fields stop gaining value. Common beans keep growing. |
@@ -125,7 +125,7 @@ Every bot inherits a sensible strategy from `Bot`. The `baseline` bot plays it u
 | **Selling fields** | Sells a field once it pays and can't realistically grow any more. When forced, it sells the field that loses the least future value. |
 | **Third field** | Buys it for 3 coins while less than `THIRD_FIELD_MAX_PROGRESS` (60%) of the game has gone. |
 | **Trading** | Accepts a trade only if it gains more than `MIN_TRADE_GAIN` after subtracting what it pays and the partner's gain × `HELP_WEIGHT` (`LEADER_HELP_WEIGHT` if the partner leads). It offers away junk flips and front cards worth less than `JUNK_HAND_THRESHOLD`: first for a bean it grows, then for a 1-card 1-turn pick, then as gifts. |
-| **Draft picks** | A pick's value is the flips it expects to want, discounted by `PICK_TURN_DISCOUNT` per turn of waiting. Its cost is the flips it would lose, plus the help the pick gives the holder. **Whenever it wants a bean but has no junk card to pay with, it always offers an EV-priced pick.** That is the cheapest pick in `PICK_MENU` (1–2 cards × 1–3 turns) that costs the baseline less than the bean is worth; the other player decides whether it's enough. |
+| **Draft picks** | A pick's value is the flips it expects to want, discounted by `PICK_TURN_DISCOUNT` per turn of waiting. Its cost is the flips it would lose, plus the help the pick gives the holder. **Whenever it wants a bean but has no junk card to pay with, it always offers an EV-priced pick.** That is the cheapest pick in `PICK_MENU` (1–2 cards × 1–3 turns) that costs the strategist less than the bean is worth; the other player decides whether it's enough. |
 
 ### Tuning settings
 

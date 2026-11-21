@@ -5,7 +5,7 @@ from bohnanza import Bot, Offer, Pick, Request
 class DraftDealer(Bot):
     key = "draft_dealer"
     description = "Pays with draft picks first, small ones (1 card, 1-2 turns), always priced in coins."
-    details = ("Thinks in coins like the baseline, but reaches for draft picks first: when it wants a flipped "
+    details = ("Thinks in coins like the strategist, but reaches for draft picks first: when it wants a flipped "
                "card it offers the cheapest pick that still leaves it a gain before considering hand cards, it "
                "tries to sell unwanted flips for a pick on the first trade round, and it only ever promises "
                "small picks (1 card for 1-2 turns).")

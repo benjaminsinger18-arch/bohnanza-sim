@@ -6,7 +6,7 @@ COMMON = {"Blue", "Chili", "Stink", "Green", "Coffee", "Wax"}
 
 class Specialist(Bot):
     description = "Expects to collect 40% more of the common beans and 40% less of the rare ones."
-    details = ("Thinks in coins like the baseline, but its growth estimate favours the common beans (Blue, "
+    details = ("Thinks in coins like the strategist, but its growth estimate favours the common beans (Blue, "
                "Chili, Stink, Green, plus Coffee and Wax in the variant): it expects to collect 1.4x as many of "
                "them and 0.6x as many rare ones. Every decision (planting, selling, trading, picks) follows "
                "from that, so it keeps common fields and sells or trades away rare ones.")
