@@ -51,6 +51,13 @@ All of them think in coins, using the strategist's valuation; each one shifts a 
 | `draft_dealer` / `big_spender` | Pay with draft picks first (small / biggest affordable) |
 | `leader_hater` | Anything that helps the leader counts 3× against it; gifts go to everyone else |
 | `field_buyer` | Buys the 3rd field the moment it can, cashing a field early to afford it |
+| `two_fields` | Never buys a 3rd field |
+| `field_grower` | +0.5 coin on every card that extends a field; counts 100% of growth |
+| `rare_hunter` | Expects 1.4× the rare beans and 0.7× the common ones |
+| `contrarian` | Expects 30% fewer copies of a bean for every rival field growing it |
+| `pick_miser` | Never promises draft picks, but takes them |
+| `closer` | Counts 95% of growth early, falling to 50% by the end |
+| `trade_shark` | A partner's gain counts 80% against it (150% vs the leader); wants 0.2+ coins per trade |
 | `stingy` | Never trades |
 | `random` | Random legal moves |
 
