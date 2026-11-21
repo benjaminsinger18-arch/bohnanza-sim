@@ -9,6 +9,7 @@ class FieldBuyer(Bot):
                "sells the one that loses the least future value. (3-player games already start with 3 fields, "
                "so there it plays exactly like the strategist.)")
     THIRD_FIELD_MAX_PROGRESS = 1.01
+    THIRD_FIELD_MAX_PLAYERS = 99
 
     def maybe_harvest(self, view):
         out = super().maybe_harvest(view)

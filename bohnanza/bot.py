@@ -53,6 +53,8 @@ class Bot:
     PICK_TURN_DISCOUNT = 0.85       # each turn a draft pick waits, it's worth this much less
     HAND_DEPTH_DECAY = 0.75         # cards deeper in the hand matter less (they're turns away)
     THIRD_FIELD_MAX_PROGRESS = 0.6  # buy a 3rd field only if less than this share of the game is gone
+    THIRD_FIELD_MAX_PLAYERS = 4     # ...and only at tables of at most this many players
+    RIVAL_CUT = 0.3                 # expect this share fewer copies of a bean for each rival field growing it
     JUNK_HAND_THRESHOLD = -0.2      # front hand cards worth less than this get offered away
     PICK_MENU = ((1, 1), (1, 2), (2, 1), (1, 3), (2, 2), (2, 3))  # (cards, turns) picks I'm willing to offer
     NEW_FIELD_GROWTH = 0.5          # 1-card fields rarely survive to grow: count only this share of their growth
@@ -86,7 +88,9 @@ class Bot:
         if "avail" not in c:
             more_passes = view.exhaustions < view.end_exhaustions - 1
             disc = Counter(view.discard)
-            c["avail"] = {b: max(0, view.remaining_unseen(b)) + (disc[b] if more_passes else 0)
+            rivals = Counter(b for o in view.opponents for b, _ in o.fields if b)
+            c["avail"] = {b: (max(0, view.remaining_unseen(b)) + (disc[b] if more_passes else 0))
+                          * max(0.25, 1.0 - self.RIVAL_CUT * rivals[b])
                           for b in view.deck_counts}
         return c["avail"].get(bean, 0)
 
@@ -225,9 +229,10 @@ class Bot:
 
     # ================================================================== third field
     def buy_third_field(self, view: PlayerView) -> bool:
-        """Offered whenever you can afford a 3rd field. Strategist: buy it if the game is young enough."""
+        """Offered whenever you can afford a 3rd field. Strategist: buy it at 3-4 player tables if the game is young enough."""
         return (view.third_field_cost is not None and view.coins >= view.third_field_cost
-                and view.progress < self.THIRD_FIELD_MAX_PROGRESS)
+                and view.progress < self.THIRD_FIELD_MAX_PROGRESS
+                and view.num_players <= self.THIRD_FIELD_MAX_PLAYERS)
 
     # ================================================================== draft picks
     def flip_odds(self, view: PlayerView) -> dict:

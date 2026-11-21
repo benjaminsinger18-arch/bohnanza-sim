@@ -44,18 +44,17 @@ All of them think in coins, using the strategist's valuation; each one shifts a 
 | Bot | Playstyle |
 |---|---|
 | `strategist` | The defaults, unchanged |
-| `quick_cash` | Impatient: `RISK_DISCOUNT = 0.6`, so it cashes fields early |
+| `quick_cash` | Impatient: `RISK_DISCOUNT = 0.8` (strategist 1.0), so it cashes fields early |
 | `hoarder` | Picky: `CHURN_PENALTY = 2`, trades only for gains of 0.4+ coins |
 | `specialist` | Expects 1.4× the common beans and 0.6× the rare ones |
 | `generous_trader` | Ignores how much trades help others, gives junk away at once |
-| `draft_dealer` / `big_spender` | Pay with draft picks first (small / biggest affordable) |
+| `draft_dealer` | Pays with small draft picks first |
 | `leader_hater` | Anything that helps the leader counts 3× against it; gifts go to everyone else |
 | `field_buyer` | Buys the 3rd field the moment it can, cashing a field early to afford it |
-| `two_fields` | Never buys a 3rd field |
+| `two_fields` | Never buys a 3rd field (the strategist buys one at 4 players only) |
 | `field_grower` | +1.5 coins on every card that extends a field (strategist +0.75); killing a young field costs 2 |
 | `rare_hunter` | Expects 1.4× the rare beans and 0.7× the common ones |
-| `contrarian` | Expects 30% fewer copies of a bean for every rival field growing it |
-| `pick_miser` | Never promises draft picks, but takes them |
+| `contrarian` | Expects 60% fewer copies of a bean for every rival field growing it (strategist 30%) |
 | `closer` | Counts 100% of growth early, falling to 50% by the end |
 | `trade_shark` | A partner's gain counts 80% against it (150% vs the leader); wants 0.2+ coins per trade |
 | `random` | Random legal moves |
@@ -126,10 +125,10 @@ Every bot inherits a sensible strategy from `Bot`. The `strategist` bot plays it
 | Decision | Strategist rule |
 |---|---|
 | **Field value** | The larger of what the field pays if sold now and `RISK_DISCOUNT` × where it can still grow. Growth is estimated from copies still out there (unseen, plus discards if the pile gets reshuffled again) × `FUTURE_SHARE` × the share of the game left. |
-| **Rare vs common beans** | Comes straight from the field-value estimate. Once few copies of a rare bean remain, its fields stop gaining value. Common beans keep growing. |
+| **Rare vs common beans** | Comes straight from the field-value estimate. Once few copies of a rare bean remain, its fields stop gaining value. Common beans keep growing. It also expects `RIVAL_CUT` (30%) fewer copies of a bean for every opponent field already growing it, so it prefers beans nobody else is collecting. |
 | **Planting** | Extends a matching field, otherwise starts a new one. A second hand card is planted only if it extends a field, fills an empty one, or replaces a field worth selling anyway. Killing a field that pays nothing costs an extra `CHURN_PENALTY` (1 coin), and 1-card fields count only `NEW_FIELD_GROWTH` (half) of their growth, so it stops churning its fields. Every card that extends one of its fields is worth an extra `GROW_BONUS` (0.75 coin), so it trades hard for its own beans. `RISK_DISCOUNT` is 1.0: a field's expected growth counts in full. |
 | **Selling fields** | Sells a field once it pays and can't realistically grow any more. When forced, it sells the field that loses the least future value. |
-| **Third field** | Buys it for 3 coins while less than `THIRD_FIELD_MAX_PROGRESS` (60%) of the game has gone. |
+| **Third field** | Buys it for 3 coins at tables of up to `THIRD_FIELD_MAX_PLAYERS` (4) players, while less than `THIRD_FIELD_MAX_PROGRESS` (60%) of the game has gone. |
 | **Trading** | Accepts a trade only if it gains more than `MIN_TRADE_GAIN` after subtracting what it pays and the partner's gain × `HELP_WEIGHT` (`LEADER_HELP_WEIGHT` if the partner leads). It offers away junk flips and front cards worth less than `JUNK_HAND_THRESHOLD`: first for a bean it grows, then for a 1-card 1-turn pick, then as gifts. |
 | **Draft picks** | A pick's value is the flips it expects to want, discounted by `PICK_TURN_DISCOUNT` per turn of waiting. Its cost is the flips it would lose, plus the help the pick gives the holder. **Whenever it wants a bean but has no junk card to pay with, it always offers an EV-priced pick.** That is the cheapest pick in `PICK_MENU` (1–2 cards × 1–3 turns) that costs the strategist less than the bean is worth; the other player decides whether it's enough. |
 
@@ -174,7 +173,7 @@ Draft picks are on by default. Turn them off with `--no-draft-picks`.
 - **Order:** when several picks fall on the same turn, they're used in the order they were given.
 - **Seeing picks:** `view.draft_picks` lists every outstanding pick. `view.picks_held` and `view.picks_owed` filter it to yours.
 - **Default bot:** it offers EV-priced picks for beans it wants, sells junk cards for picks, and accepts picks worth more than they cost. When using a pick, it takes only flipped cards that fit its fields.
-- **Starter bots that lean on picks:** `draft_dealer` and `big_spender`, both in `bots/draft_dealer.py`. `draft_dealer` pays with small picks (1 card, 1–2 turns) before hand cards. `big_spender` offers the biggest pick that still costs it less than it gains.
+- **Starter bot that leans on picks:** `draft_dealer` (`bots/draft_dealer.py`) pays with small picks (1 card, 1–2 turns) before hand cards.
 
 ## Rules notes and simplifications
 

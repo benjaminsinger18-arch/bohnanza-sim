@@ -117,7 +117,11 @@ def test_plants_front_card_only():
 
 
 def test_draws_go_to_back_of_hand():
-    g = _game(seed=3)
+    class NoHandTrades(Bot):
+        def propose_offers(self, view):
+            return []
+
+    g = Game([NoHandTrades(), Bot(), Bot(), Bot()], seed=3, strict=True)
     hand_before = list(g.players[0].hand)
     g.play_turn()
     p = g.players[0]
@@ -309,7 +313,7 @@ def test_bad_pick_shapes_rejected():
 
     g = Game([Bot(), Bad(), Bot(), Bot()], seed=3)
     g.play_turn()
-    assert g.picks == [] and g.players[1].stats["violations"] >= 1
+    assert all(p.giver != 1 for p in g.picks) and g.players[1].stats["violations"] >= 1
 
 
 # ---------------------------------------------------------------- third bean field

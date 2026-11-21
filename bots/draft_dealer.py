@@ -30,22 +30,3 @@ class DraftDealer(Bot):
                       if (o.give_flipped or o.give_hand) and not o.give_picks else o for o in offers]
         return offers
 
-
-class BigSpender(DraftDealer):
-    key = "big_spender"
-    description = "Like draft_dealer, but offers the biggest pick it can still afford, to win the trade."
-    details = ("Same playstyle as draft_dealer, but when paying with a pick it offers the most generous pick "
-               "(up to 2 cards for 2 turns) whose cost in coins is still below what it gains. It wins more "
-               "trades and gives away more of its future flips, never at a loss by its own maths.")
-    PICK_MENU = ((1, 1), (1, 2), (2, 1), (2, 2))
-
-    def ev_pick(self, view, gain, partner, their_loss):
-        if not view.draft_picks_allowed:
-            return None
-        cap = view.pick_capacity()
-        menu = [Pick(c, t) for c, t in self.PICK_MENU if c <= cap]
-        for pk in sorted(menu, key=lambda pk: -self.pick_cost(view, pk, partner)):
-            if (self.pick_cost(view, pk, partner) < gain - self.MIN_TRADE_GAIN
-                    and self.pick_value(view, pk) >= their_loss + self.MIN_TRADE_GAIN):
-                return pk
-        return None
