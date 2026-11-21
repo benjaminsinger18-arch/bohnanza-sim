@@ -11,11 +11,11 @@ Simulates thousands of Bohnanza games between bots you write, then reports which
 
 ```bash
 python -m bohnanza list                                   # bots it found
-python -m bohnanza run --bots hoarder,quick_cash,stingy,random --games 5000 --report --open
-python -m bohnanza run --bots hoarder,quick_cash,specialist,generous_trader,stingy,random \
+python -m bohnanza run --bots strategist,hoarder,quick_cash,field_grower --games 5000 --report --open
+python -m bohnanza run --bots strategist,field_grower,rare_hunter,contrarian,specialist,generous_trader \
        --rules variant --players 3-7 --games 5000 --report
 python -m bohnanza report --all                           # combine every run so far
-python -m bohnanza replay --seed 7 --bots hoarder,quick_cash,stingy,random   # one game, turn by turn
+python -m bohnanza replay --seed 7 --bots strategist,hoarder,quick_cash,random   # one game, turn by turn
 ```
 
 `run` options:
@@ -39,26 +39,25 @@ python -m bohnanza replay --seed 7 --bots hoarder,quick_cash,stingy,random   # o
 
 ## Starter bots
 
-All of them think in coins, using the strategist's valuation; each one shifts a setting or two to express a playstyle. `stingy` and `random` are the exceptions, kept as floors.
+All of them think in coins, using the strategist's valuation; each one shifts a setting or two to express a playstyle. `random` is the exception, kept as a floor.
 
 | Bot | Playstyle |
 |---|---|
 | `strategist` | The defaults, unchanged |
 | `quick_cash` | Impatient: `RISK_DISCOUNT = 0.6`, so it cashes fields early |
-| `hoarder` | Patient: `RISK_DISCOUNT = 0.97`, `CHURN_PENALTY = 2`, trades only for gains of 0.4+ coins |
+| `hoarder` | Picky: `CHURN_PENALTY = 2`, trades only for gains of 0.4+ coins |
 | `specialist` | Expects 1.4× the common beans and 0.6× the rare ones |
 | `generous_trader` | Ignores how much trades help others, gives junk away at once |
 | `draft_dealer` / `big_spender` | Pay with draft picks first (small / biggest affordable) |
 | `leader_hater` | Anything that helps the leader counts 3× against it; gifts go to everyone else |
 | `field_buyer` | Buys the 3rd field the moment it can, cashing a field early to afford it |
 | `two_fields` | Never buys a 3rd field |
-| `field_grower` | +0.5 coin on every card that extends a field; counts 100% of growth |
+| `field_grower` | +1.5 coins on every card that extends a field (strategist +0.75); killing a young field costs 2 |
 | `rare_hunter` | Expects 1.4× the rare beans and 0.7× the common ones |
 | `contrarian` | Expects 30% fewer copies of a bean for every rival field growing it |
 | `pick_miser` | Never promises draft picks, but takes them |
-| `closer` | Counts 95% of growth early, falling to 50% by the end |
+| `closer` | Counts 100% of growth early, falling to 50% by the end |
 | `trade_shark` | A partner's gain counts 80% against it (150% vs the leader); wants 0.2+ coins per trade |
-| `stingy` | Never trades |
 | `random` | Random legal moves |
 
 ## Writing a bot
@@ -128,7 +127,7 @@ Every bot inherits a sensible strategy from `Bot`. The `strategist` bot plays it
 |---|---|
 | **Field value** | The larger of what the field pays if sold now and `RISK_DISCOUNT` × where it can still grow. Growth is estimated from copies still out there (unseen, plus discards if the pile gets reshuffled again) × `FUTURE_SHARE` × the share of the game left. |
 | **Rare vs common beans** | Comes straight from the field-value estimate. Once few copies of a rare bean remain, its fields stop gaining value. Common beans keep growing. |
-| **Planting** | Extends a matching field, otherwise starts a new one. A second hand card is planted only if it extends a field, fills an empty one, or replaces a field worth selling anyway. Killing a field that pays nothing costs an extra `CHURN_PENALTY` (1 coin), and 1-card fields count only `NEW_FIELD_GROWTH` (half) of their growth, so it stops churning its fields. |
+| **Planting** | Extends a matching field, otherwise starts a new one. A second hand card is planted only if it extends a field, fills an empty one, or replaces a field worth selling anyway. Killing a field that pays nothing costs an extra `CHURN_PENALTY` (1 coin), and 1-card fields count only `NEW_FIELD_GROWTH` (half) of their growth, so it stops churning its fields. Every card that extends one of its fields is worth an extra `GROW_BONUS` (0.75 coin), so it trades hard for its own beans. `RISK_DISCOUNT` is 1.0: a field's expected growth counts in full. |
 | **Selling fields** | Sells a field once it pays and can't realistically grow any more. When forced, it sells the field that loses the least future value. |
 | **Third field** | Buys it for 3 coins while less than `THIRD_FIELD_MAX_PROGRESS` (60%) of the game has gone. |
 | **Trading** | Accepts a trade only if it gains more than `MIN_TRADE_GAIN` after subtracting what it pays and the partner's gain × `HELP_WEIGHT` (`LEADER_HELP_WEIGHT` if the partner leads). It offers away junk flips and front cards worth less than `JUNK_HAND_THRESHOLD`: first for a bean it grows, then for a 1-card 1-turn pick, then as gifts. |
@@ -142,7 +141,7 @@ Change any of these with a class attribute; there's no need to rewrite methods:
 class Bold(Bot):
     HELP_WEIGHT = 0.0                # doesn't care if trades help opponents
     THIRD_FIELD_MAX_PROGRESS = 1.0   # always buys the 3rd field
-    RISK_DISCOUNT = 0.95             # more patient with growing fields
+    RISK_DISCOUNT = 0.8              # less patient with growing fields
     CHURN_PENALTY = 0.0              # doesn't mind killing young fields
 ```
 

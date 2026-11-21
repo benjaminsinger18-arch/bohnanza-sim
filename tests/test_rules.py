@@ -224,7 +224,7 @@ def test_conservation_many_random_games():
 
 def test_deterministic():
     def run():
-        bots = [make_bot(k) for k in ("random", "hoarder", "quick_cash", "stingy")]
+        bots = [make_bot(k) for k in ("random", "hoarder", "quick_cash", "field_grower")]
         return Game(bots, seed=42).play()
     assert run() == run()
 

@@ -44,7 +44,7 @@ class Bot:
     details: str = ""            # longer explanation, shown in the report
 
     # ------------------------------------------------------------------ tuning knobs
-    RISK_DISCOUNT = 0.85            # how much of a field's expected growth counts (vs selling now)
+    RISK_DISCOUNT = 1.0             # how much of a field's expected growth counts (vs selling now)
     FUTURE_SHARE = None             # share of the remaining copies of a bean I expect to get
                                     # (None = 1.5 / number of players)
     HELP_WEIGHT = 0.25              # how much a trade partner's gain counts against me
@@ -57,6 +57,7 @@ class Bot:
     PICK_MENU = ((1, 1), (1, 2), (2, 1), (1, 3), (2, 2), (2, 3))  # (cards, turns) picks I'm willing to offer
     NEW_FIELD_GROWTH = 0.5          # 1-card fields rarely survive to grow: count only this share of their growth
     CHURN_PENALTY = 1.0             # extra cost (coins) of killing a field that pays nothing
+    GROW_BONUS = 0.75               # extra value (coins) of a card that extends one of my fields
 
     def __init__(self):
         self.seat: int = -1
@@ -126,7 +127,7 @@ class Bot:
         i = view.field_index(bean)
         if i is not None:
             c = view.fields[i][1]
-            return self.field_value(view, bean, c + 1) - self.field_value(view, bean, c)
+            return self.field_value(view, bean, c + 1) - self.field_value(view, bean, c) + self.GROW_BONUS
         if view.empty_field() is not None:
             return self.field_value(view, bean, 1) - self.empty_field_value(view)
         j = self.pick_harvest(view)

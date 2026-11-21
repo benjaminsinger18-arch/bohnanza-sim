@@ -3,11 +3,11 @@ from bohnanza import Bot
 
 
 class Closer(Bot):
-    description = "Patient early (95% of growth counts), cashing in late (falls to 50% by the end)."
+    description = "Patient early (100% of growth counts), cashing in late (falls to 50% by the end)."
     details = ("Thinks in coins like the strategist, but changes gear: early on a field's future growth counts "
-               "at 95%, falling steadily to 50% as the deck runs out for the last time. It builds big fields "
+               "in full, falling steadily to 50% as the deck runs out for the last time. It builds big fields "
                "early and makes sure they're sold before the game ends.")
-    EARLY_RISK = 0.95
+    EARLY_RISK = 1.0
     LATE_RISK = 0.5
 
     def field_value(self, view, bean, count):
